@@ -103,15 +103,21 @@ body {
     color: var(--text-color);
 }
 
-.api-key-section {
+.refresh-status-section {
     display: flex;
-    gap: 10px;
     align-items: center;
+    background-color: var(--background-color);
+    padding: 8px 15px;
+    border-radius: 5px;
+    border: 1px solid var(--border-color);
+    font-size: 0.9rem;
+    color: var(--text-light-color);
 }
 
-.api-key-section input {
-    width: 300px; /* Adjust width as needed */
-    border: 1px solid var(--border-color);
+#refresh-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .auth-buttons #user-profile {

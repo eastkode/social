@@ -2,36 +2,26 @@
 
 /**
  * Main application logic for the Social Media Dashboard.
- * Refactored to use a single aggregator API.
+ * Refactored to use an automated, time-based refresh system.
  */
 document.addEventListener('DOMContentLoaded', () => {
     const app = {
+        // --- Constants ---
+        REFRESH_INTERVAL_MS: 3 * 24 * 60 * 60 * 1000, // 3 days in milliseconds
+
         // --- DOM Elements ---
         elements: {
-            // New API Key UI
-            apiKeyInput: document.getElementById('api-key-input'),
-            fetchDataBtn: document.getElementById('fetch-data-btn'),
-
-            // Areas
+            refreshStatus: document.getElementById('refresh-status'),
             initialPrompt: document.getElementById('initial-prompt'),
-            dashboardArea: document.getElementById('dashboard-area'),
-
-            // Filters
             platformSelect: document.getElementById('platform-select'),
             monthSelect: document.getElementById('month-select'),
             yearSelect: document.getElementById('year-select'),
-            dateRangePicker: document.getElementById('date-range-picker'),
             applyFiltersBtn: document.getElementById('apply-filters-btn'),
             exportDataBtn: document.getElementById('export-data-btn'),
-
-            // KPIs
             kpiReach: document.getElementById('kpi-reach'),
             kpiEngagements: document.getElementById('kpi-engagements'),
             kpiFollowers: document.getElementById('kpi-followers'),
             kpiVideoViews: document.getElementById('kpi-video-views'),
-
-            // Content
-            growthChartCanvas: document.getElementById('growth-chart'),
             performanceChartCanvas: document.getElementById('performance-chart'),
             topPostsContainer: document.getElementById('top-posts-container'),
         },
@@ -39,11 +29,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- State ---
         state: {
             apiKey: null,
-            dashboardData: null,
-            charts: {
-                growth: null,
-                performance: null,
-            }
+            allData: null,
+            charts: { performance: null },
+            timerInterval: null,
         },
 
         // --- Initialization ---
@@ -53,109 +41,147 @@ document.addEventListener('DOMContentLoaded', () => {
             helpers.populateDateFilters();
             this.addEventListeners();
 
-            // Persist API key from local storage if available
-            const savedApiKey = localStorage.getItem('dashboard_api_key');
-            if(savedApiKey) {
-                this.elements.apiKeyInput.value = savedApiKey;
-                this.state.apiKey = savedApiKey;
-                helpers.log('Loaded API key from local storage.');
+            this.state.apiKey = localStorage.getItem('dashboard_api_key');
+
+            if (!this.state.apiKey) {
+                helpers.showToast('API Key not set.', 'error');
+                helpers.log('API Key not found in localStorage. Please set it in the console.', 'ERROR');
+                this.elements.refreshStatus.innerHTML = `<i class="fas fa-exclamation-triangle"></i> <span>API Key Not Set</span>`;
+                return;
             }
+
+            this.loadInitialData();
         },
 
         // --- Event Listeners ---
         addEventListeners() {
-            this.elements.fetchDataBtn.addEventListener('click', () => this.fetchAndRenderData());
-            this.elements.applyFiltersBtn.addEventListener('click', () => this.fetchAndRenderData());
+            this.elements.applyFiltersBtn.addEventListener('click', () => this.applyFiltersAndRender());
             this.elements.exportDataBtn.addEventListener('click', () => this.exportData());
         },
 
-        // --- Data Fetching & Rendering ---
-        async fetchAndRenderData() {
-            const apiKey = this.elements.apiKeyInput.value.trim();
-            if (!apiKey) {
-                helpers.showToast('Please enter your API key.', 'error');
-                return;
+        /**
+         * Determines whether to fetch new data or load from cache.
+         */
+        loadInitialData() {
+            const cachedData = localStorage.getItem('dashboard_cached_data');
+            const lastFetchTimestamp = parseInt(localStorage.getItem('dashboard_last_fetch_timestamp'), 10);
+            const now = Date.now();
+
+            if (cachedData && lastFetchTimestamp && (now - lastFetchTimestamp < this.REFRESH_INTERVAL_MS)) {
+                helpers.log('Loading fresh data from cache.');
+                this.loadDataFromCache(cachedData, lastFetchTimestamp);
+            } else {
+                helpers.log('Cached data is stale or missing. Fetching new data...');
+                this.fetchAndCacheData();
             }
+        },
 
-            // Save API key for convenience
-            this.state.apiKey = apiKey;
-            localStorage.setItem('dashboard_api_key', apiKey);
+        /**
+         * Loads and renders data from localStorage cache.
+         */
+        loadDataFromCache(cachedData, timestamp) {
+            try {
+                this.state.allData = JSON.parse(cachedData);
+                this.elements.initialPrompt.style.display = 'none';
+                this.applyFiltersAndRender();
+                this.startRefreshTimer(timestamp + this.REFRESH_INTERVAL_MS);
+            } catch (error) {
+                helpers.log('Failed to parse cached data. Fetching new data.', 'ERROR');
+                this.fetchAndCacheData();
+            }
+        },
 
+        /**
+         * Fetches data from the API and caches it in localStorage.
+         */
+        async fetchAndCacheData() {
             helpers.toggleSpinner(true);
-            this.clearDashboard(false); // Clear previous data but not the prompt
-
-            // Get date range from filters
-            const year = this.elements.yearSelect.value;
-            const month = this.elements.monthSelect.value;
-            const startDate = new Date(year, month === 'all' ? 0 : month - 1, 1);
-            const endDate = new Date(year, month === 'all' ? 11 : month, 0);
+            this.clearDashboard();
 
             try {
-                // Call the new single adapter
-                const data = await aggregatorAdapter.fetchInsights(this.state.apiKey, startDate, endDate);
+                const data = await aggregatorAdapter.fetchInsights(this.state.apiKey);
 
                 if (!data) {
                     helpers.showToast('No data returned from the API.', 'error');
-                    helpers.log('No data fetched from aggregator.', 'WARN');
                     return;
                 }
 
-                this.state.dashboardData = data;
-                this.elements.initialPrompt.style.display = 'none'; // Hide prompt on successful fetch
-                this.renderDashboard();
+                const now = Date.now();
+                this.state.allData = data;
+                localStorage.setItem('dashboard_cached_data', JSON.stringify(data));
+                localStorage.setItem('dashboard_last_fetch_timestamp', now);
+
+                helpers.log('Successfully fetched and cached new data.');
+                this.elements.initialPrompt.style.display = 'none';
+                this.applyFiltersAndRender();
+                this.startRefreshTimer(now + this.REFRESH_INTERVAL_MS);
 
             } catch (error) {
                 helpers.showToast('An error occurred while fetching data.', 'error');
-                helpers.log(`Data fetch error: ${error.message}`, 'ERROR');
             } finally {
                 helpers.toggleSpinner(false);
             }
         },
 
-        renderDashboard() {
-            if (!this.state.dashboardData) return;
-            this.renderKPIs();
-            this.renderCharts();
-            this.renderTopPosts();
+        applyFiltersAndRender() {
+            if (!this.state.allData) return;
+
+            const selectedPlatform = this.elements.platformSelect.value;
+            const selectedYear = parseInt(this.elements.yearSelect.value, 10);
+            const selectedMonth = this.elements.monthSelect.value;
+
+            const filteredPosts = this.state.allData.topPosts.filter(post => {
+                const postDate = new Date(post.timestamp);
+                const platformMatch = selectedPlatform === 'all' || post.platform === selectedPlatform;
+                const yearMatch = postDate.getFullYear() === selectedYear;
+                const monthMatch = selectedMonth === 'all' || (postDate.getMonth() + 1) == selectedMonth;
+                return platformMatch && yearMatch && monthMatch;
+            });
+
+            const filteredKPIs = {
+                reach: 0, engagements: 0,
+                followers: this.state.allData.kpis.followers,
+                videoViews: 0,
+            };
+
+            filteredPosts.forEach(post => {
+                filteredKPIs.engagements += post.stats.engagement || 0;
+            });
+
+            const filteredDashboardData = {
+                kpis: filteredKPIs,
+                topPosts: filteredPosts,
+            };
+
+            this.renderDashboard(filteredDashboardData);
         },
 
-        clearDashboard(clearPrompt = true) {
+        renderDashboard(data) {
+            this.renderKPIs(data.kpis);
+            this.renderPerformanceChart(data.topPosts);
+            this.renderTopPosts(data.topPosts);
+        },
+
+        clearDashboard() {
             this.elements.kpiReach.textContent = '—';
             this.elements.kpiEngagements.textContent = '—';
             this.elements.kpiFollowers.textContent = '—';
             this.elements.kpiVideoViews.textContent = '—';
             this.elements.topPostsContainer.innerHTML = '';
-            if (this.state.charts.growth) this.state.charts.growth.destroy();
             if (this.state.charts.performance) this.state.charts.performance.destroy();
-            if (clearPrompt) {
-                 this.elements.initialPrompt.style.display = 'block';
-            }
+            this.elements.initialPrompt.style.display = 'block';
         },
 
-        renderKPIs() {
-            const { kpis } = this.state.dashboardData;
+        renderKPIs(kpis) {
             this.elements.kpiReach.textContent = helpers.formatNumber(kpis.reach);
             this.elements.kpiEngagements.textContent = helpers.formatNumber(kpis.engagements);
             this.elements.kpiFollowers.textContent = helpers.formatNumber(kpis.followers);
             this.elements.kpiVideoViews.textContent = helpers.formatNumber(kpis.videoViews);
         },
 
-        renderCharts() {
-            this.renderGrowthChart();
-            this.renderPerformanceChart();
-        },
-
-        renderGrowthChart() {
-            // This chart may not be feasible if the aggregator doesn't provide daily growth data.
-            // We'll leave the logic here as a template.
-            if (this.state.charts.growth) this.state.charts.growth.destroy();
-            // Placeholder: A real implementation depends on aggregator providing timeseries data.
-        },
-
-        renderPerformanceChart() {
+        renderPerformanceChart(posts) {
             if (this.state.charts.performance) this.state.charts.performance.destroy();
-
-            const topPosts = this.state.dashboardData.topPosts.slice(0, 10);
+            const topPosts = posts.slice(0, 10);
             const labels = topPosts.map(p => helpers.trimText(p.caption, 20) || `Post ${p.id.slice(-4)}`);
             const engagementData = topPosts.map(p => p.stats.engagement);
 
@@ -175,15 +201,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         },
 
-        renderTopPosts() {
-            const posts = this.state.dashboardData.topPosts;
+        renderTopPosts(posts) {
             const container = this.elements.topPostsContainer;
-
             if (posts.length === 0) {
                 container.innerHTML = '<p>No posts found for the selected criteria.</p>';
                 return;
             }
-
             container.innerHTML = '';
             posts.slice(0, 12).forEach(post => {
                 const postCard = document.createElement('a');
@@ -191,41 +214,57 @@ document.addEventListener('DOMContentLoaded', () => {
                 postCard.href = post.url;
                 postCard.target = '_blank';
                 postCard.rel = 'noopener noreferrer';
-
                 const platformIcon = `fa-${post.platform}`;
-
                 postCard.innerHTML = `
-                    <div class="post-thumbnail">
-                        <img src="${post.thumbnail}" alt="Post thumbnail" onerror="this.src='https://via.placeholder.com/300x200';">
-                    </div>
-                    <div class="post-content">
-                        <p>${helpers.trimText(post.caption, 120)}</p>
-                    </div>
+                    <div class="post-thumbnail"><img src="${post.thumbnail}" alt="Post thumbnail" onerror="this.src='https://via.placeholder.com/300x200';"></div>
+                    <div class="post-content"><p>${helpers.trimText(post.caption, 120)}</p></div>
                     <div class="post-stats">
                         <div class="stat"><i class="fas fa-heart"></i> <span>${helpers.formatNumber(post.stats.likes)}</span></div>
                         <div class="stat"><i class="fas fa-comment"></i> <span>${helpers.formatNumber(post.stats.comments)}</span></div>
                         <div class="stat"><i class="fas fa-bookmark"></i> <span>${helpers.formatNumber(post.stats.saves)}</span></div>
                         <div class="stat"><i class="fas fa-bullseye"></i> <span>${helpers.formatNumber(post.stats.reach)}</span></div>
                         <div class="stat"><i class="fab ${platformIcon}"></i></div>
-                    </div>
-                `;
+                    </div>`;
                 container.appendChild(postCard);
             });
         },
 
         exportData() {
-            if (!this.state.dashboardData) {
-                helpers.showToast('No data to export.', 'error');
+            if (!this.state.allData) {
+                helpers.showToast('No data available to export.', 'error');
                 return;
             }
             const date = new Date().toISOString().split('T')[0];
             const filename = `dashboard-export-${date}`;
-            helpers.exportData(this.state.dashboardData, filename, 'csv');
-            helpers.exportData(this.state.dashboardData, filename, 'json');
+            helpers.exportData(this.state.allData, filename, 'csv');
+            helpers.exportData(this.state.allData, filename, 'json');
             helpers.showToast('Data export started.', 'success');
+        },
+
+        startRefreshTimer(nextRefreshTime) {
+            if (this.state.timerInterval) clearInterval(this.state.timerInterval);
+
+            const update = () => {
+                const remaining = nextRefreshTime - Date.now();
+                if (remaining <= 0) {
+                    this.elements.refreshStatus.innerHTML = `<i class="fas fa-sync-alt"></i> <span>Refreshing now...</span>`;
+                    clearInterval(this.state.timerInterval);
+                    location.reload(); // Simple way to trigger a refresh
+                    return;
+                }
+
+                const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((remaining / (1000 * 60 * 60)) % 24);
+                const minutes = Math.floor((remaining / 1000 / 60) % 60);
+                const seconds = Math.floor((remaining / 1000) % 60);
+
+                this.elements.refreshStatus.innerHTML = `<i class="fas fa-history"></i> <span>Next refresh in: ${days}d ${hours}h ${minutes}m ${seconds}s</span>`;
+            };
+
+            update();
+            this.state.timerInterval = setInterval(update, 1000);
         }
     };
 
-    // --- Run Application ---
     app.init();
 });

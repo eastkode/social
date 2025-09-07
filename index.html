@@ -38,9 +38,11 @@
                 <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEg_zb5s1d6Cx1yTSjSHdwqTocAhUFtYBAuRcjJd7aFxeeVAxnVT_Xa7g3Qfn8WV54YTaI2z5ivVzHzDoexsP4Pw3b0sTOeyhuiuVepJlO1stNj-g_vi6mIGIl7JI9rBr5hyphenhyphenu3Nzmzr6QtJ6ts_MjfQJ8alZTvEiZ7JRzRTVEKUt36KcSc_Q98rWp37CjBdC/s320/Amity%20Jharkhand%20Logo-01.png" alt="Amity University Logo" class="header-logo">
                 <h1>Dashboard</h1>
             </div>
-            <nav class="api-key-section">
-                <input type="password" id="api-key-input" placeholder="Enter Your Aggregator API Key">
-                <button id="fetch-data-btn" class="btn"><i class="fas fa-sync"></i> Fetch Data</button>
+            <nav class="refresh-status-section">
+                <div id="refresh-status">
+                    <i class="fas fa-info-circle"></i>
+                    <span>Initializing...</span>
+                </div>
             </nav>
         </div>
     </header>
@@ -129,8 +131,9 @@
                 <!-- Initial Prompt -->
                 <div id="initial-prompt" class="card login-prompt-card">
                     <h2>Welcome to your Social Media Dashboard</h2>
-                    <p>Enter your API key above and click "Fetch Data" to begin.</p>
-                    <i class="fas fa-key"></i>
+                    <p>Data will be loaded automatically. The dashboard will refresh every 3 days to conserve your API quota.</p>
+                    <i class="fas fa-hourglass-start"></i>
+                    <small style="margin-top: 20px;">First-time setup: Open the browser console and type `localStorage.setItem('dashboard_api_key', 'YOUR_API_KEY_HERE')` to set your key.</small>
                 </div>
             </div>
         </div>
