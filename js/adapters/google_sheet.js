@@ -14,13 +14,16 @@ const googleSheetAdapter = {
         try {
             const response = await fetch(this.sheetUrl);
             if (!response.ok) {
-                throw new Error(`Failed to fetch data from Google Sheet: ${response.statusText}`);
+                throw new Error(`Failed to fetch data from Google Sheet: ${response.status} ${response.statusText}`);
             }
             const csvText = await response.text();
+            if (!csvText) {
+                throw new Error('Fetched data is empty.');
+            }
             return this.parseCsv(csvText);
         } catch (error) {
             helpers.log(`Error fetching or parsing Google Sheet data: ${error.message}`, 'ERROR');
-            throw error;
+            throw new Error(`Could not load data from the source. Please check the sheet URL and format. Details: ${error.message}`);
         }
     },
 
@@ -30,20 +33,10 @@ const googleSheetAdapter = {
      * @returns {Array} An array of objects representing the CSV data.
      */
     parseCsv(csvText) {
-        const lines = csvText.split('\\n');
-        const headers = lines[0].split('\\t');
-        const result = [];
-
-        for (let i = 1; i < lines.length; i++) {
-            const obj = {};
-            const currentLine = lines[i].split('\\t');
-
-            for (let j = 0; j < headers.length; j++) {
-                obj[headers[j]] = currentLine[j];
-            }
-
-            result.push(obj);
-        }
-        return result;
+        const result = Papa.parse(csvText, {
+            header: true,
+            skipEmptyLines: true
+        });
+        return result.data;
     }
 };

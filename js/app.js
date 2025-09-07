@@ -15,9 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
             yearSelect: document.getElementById('year-select'),
             applyFiltersBtn: document.getElementById('apply-filters-btn'),
             exportDataBtn: document.getElementById('export-data-btn'),
-            kpiReach: document.getElementById('kpi-reach'),
-            kpiEngagements: document.getElementById('kpi-engagements'),
-            kpiVideoViews: document.getElementById('kpi-video-views'),
+            kpiSection: document.getElementById('kpi-section'),
             performanceChartCanvas: document.getElementById('performance-chart'),
             topPostsContainer: document.getElementById('top-posts-container'),
         },
@@ -96,18 +94,36 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         aggregateDataFromPosts(posts) {
-            const aggregated = { kpis: { reach: 0, engagements: 0, videoViews: 0 }, topPosts: [] };
+            const aggregated = {
+                kpis: {
+                    facebook: { reach: 0, engagements: 0, videoViews: 0 },
+                    instagram: { reach: 0, engagements: 0, videoViews: 0 },
+                    linkedin: { reach: 0, engagements: 0, videoViews: 0 },
+                    total: { reach: 0, engagements: 0, videoViews: 0 }
+                },
+                topPosts: []
+            };
+
             posts.forEach(post => {
+                const platform = post['Traffic source']?.toLowerCase();
+                if (!platform) return;
+
                 const reach = parseInt(post['Post Total Reach - Lifetime, Post'], 10) || 0;
                 const engagements = parseInt(post['Total Post Clicks (Lifetime)'], 10) || 0;
                 const videoViews = parseInt(post['Total Video Views (Lifetime)'], 10) || 0;
 
-                aggregated.kpis.reach += reach;
-                aggregated.kpis.engagements += engagements;
-                aggregated.kpis.videoViews += videoViews;
+                if (aggregated.kpis[platform]) {
+                    aggregated.kpis[platform].reach += reach;
+                    aggregated.kpis[platform].engagements += engagements;
+                    aggregated.kpis[platform].videoViews += videoViews;
+                }
+
+                aggregated.kpis.total.reach += reach;
+                aggregated.kpis.total.engagements += engagements;
+                aggregated.kpis.total.videoViews += videoViews;
 
                 aggregated.topPosts.push({
-                    platform: post['Traffic source']?.toLowerCase(),
+                    platform: platform,
                     id: post['Post ID'],
                     thumbnail: post['Full Picture URL'] || 'https://via.placeholder.com/300x200',
                     caption: post['Post Message'] || 'No caption available.',
@@ -133,18 +149,63 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         clearDashboard() {
-            this.elements.kpiReach.textContent = '—';
-            this.elements.kpiEngagements.textContent = '—';
-            this.elements.kpiVideoViews.textContent = '—';
+            this.elements.kpiSection.innerHTML = '';
             this.elements.topPostsContainer.innerHTML = '';
             if (this.state.charts.performance) this.state.charts.performance.destroy();
             this.elements.initialPrompt.style.display = 'block';
         },
 
         renderKPIs(kpis) {
-            this.elements.kpiReach.textContent = helpers.formatNumber(kpis.reach);
-            this.elements.kpiEngagements.textContent = helpers.formatNumber(kpis.engagements);
-            this.elements.kpiVideoViews.textContent = helpers.formatNumber(kpis.videoViews);
+            const kpiSection = this.elements.kpiSection;
+            kpiSection.innerHTML = ''; // Clear previous KPIs
+
+            const platforms = ['facebook', 'instagram', 'linkedin'];
+            const icons = {
+                facebook: 'fa-facebook',
+                instagram: 'fa-instagram',
+                linkedin: 'fa-linkedin'
+            }
+
+            let kpiHTML = '<h2>Total KPIs</h2><div class="kpi-grid">';
+            kpiHTML += `
+                <div class="card kpi-card">
+                    <h3><i class="fas fa-bullseye"></i> Total Reach</h3>
+                    <p>${helpers.formatNumber(kpis.total.reach)}</p>
+                </div>
+                <div class="card kpi-card">
+                    <h3><i class="fas fa-heart"></i> Total Engagements</h3>
+                    <p>${helpers.formatNumber(kpis.total.engagements)}</p>
+                </div>
+                <div class="card kpi-card">
+                    <h3><i class="fas fa-video"></i> Total Video Views</h3>
+                    <p>${helpers.formatNumber(kpis.total.videoViews)}</p>
+                </div>
+            </div>`;
+
+
+            platforms.forEach(platform => {
+                const platformKpis = kpis[platform];
+                if (platformKpis) {
+                    kpiHTML += `<h2><i class="fab ${icons[platform]}"></i> ${platform.charAt(0).toUpperCase() + platform.slice(1)} KPIs</h2><div class="kpi-grid">`;
+                    kpiHTML += `
+                        <div class="card kpi-card">
+                            <h3><i class="fas fa-bullseye"></i> Reach</h3>
+                            <p>${helpers.formatNumber(platformKpis.reach)}</p>
+                        </div>
+                        <div class="card kpi-card">
+                            <h3><i class="fas fa-heart"></i> Engagements</h3>
+                            <p>${helpers.formatNumber(platformKpis.engagements)}</p>
+                        </div>
+                        <div class="card kpi-card">
+                            <h3><i class="fas fa-video"></i> Video Views</h3>
+                            <p>${helpers.formatNumber(platformKpis.videoViews)}</p>
+                        </div>
+                    `;
+                    kpiHTML += '</div>';
+                }
+            });
+
+            kpiSection.innerHTML = kpiHTML;
         },
 
         renderPerformanceChart(posts) {
