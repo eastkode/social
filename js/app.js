@@ -2,13 +2,10 @@
 
 /**
  * Main application logic for the Social Media Dashboard.
- * Final version with automated refresh and user-friendly API key modal.
+ * Final, corrected version with two-step /history -> /analytics/post data flow.
  */
 document.addEventListener('DOMContentLoaded', () => {
     const app = {
-        // --- Constants ---
-        REFRESH_INTERVAL_MS: 3 * 24 * 60 * 60 * 1000, // 3 days
-
         // --- DOM Elements ---
         elements: {
             refreshStatus: document.getElementById('refresh-status'),
@@ -23,18 +20,23 @@ document.addEventListener('DOMContentLoaded', () => {
             kpiVideoViews: document.getElementById('kpi-video-views'),
             performanceChartCanvas: document.getElementById('performance-chart'),
             topPostsContainer: document.getElementById('top-posts-container'),
-            // Modal Elements
             apiKeyModal: document.getElementById('api-key-modal'),
             modalApiKeyInput: document.getElementById('modal-api-key-input'),
             saveApiKeyBtn: document.getElementById('save-api-key-btn'),
+            createPostBtn: document.getElementById('create-post-btn'),
+            createPostModal: document.getElementById('create-post-modal'),
+            postContentTextarea: document.getElementById('post-content-textarea'),
+            sendPostBtn: document.getElementById('send-post-btn'),
+            platformCheckboxes: document.querySelectorAll('input[name="platforms"]'),
+            closeModalBtns: document.querySelectorAll('.close-modal-btn'),
         },
 
         // --- State ---
         state: {
             apiKey: null,
-            allData: null,
+            allPostsWithAnalytics: [], // This will be the source of truth, fetched from the API.
+            dashboardData: null,
             charts: { performance: null },
-            timerInterval: null,
         },
 
         // --- Initialization ---
@@ -43,14 +45,11 @@ document.addEventListener('DOMContentLoaded', () => {
             helpers.setFooterYear();
             helpers.populateDateFilters();
             this.addEventListeners();
-
             this.state.apiKey = localStorage.getItem('dashboard_api_key');
-
             if (!this.state.apiKey) {
-                helpers.log('API Key not found. Prompting user.');
                 this.showApiKeyModal();
             } else {
-                this.loadInitialData();
+                this.loadAndFetchAllData();
             }
         },
 
@@ -59,106 +58,151 @@ document.addEventListener('DOMContentLoaded', () => {
             this.elements.applyFiltersBtn.addEventListener('click', () => this.applyFiltersAndRender());
             this.elements.exportDataBtn.addEventListener('click', () => this.exportData());
             this.elements.saveApiKeyBtn.addEventListener('click', () => this.handleSaveApiKey());
+            this.elements.createPostBtn.addEventListener('click', () => this.showCreatePostModal());
+            this.elements.sendPostBtn.addEventListener('click', () => this.handleSendPost());
+            this.elements.closeModalBtns.forEach(btn => {
+                const modalId = btn.getAttribute('data-modal-id');
+                btn.addEventListener('click', () => {
+                    if (modalId === 'api-key-modal') this.hideApiKeyModal();
+                    if (modalId === 'create-post-modal') this.hideCreatePostModal();
+                });
+            });
         },
 
-        // --- API Key Management ---
-        showApiKeyModal() {
-            this.elements.apiKeyModal.style.display = 'flex';
-        },
-
-        hideApiKeyModal() {
-            this.elements.apiKeyModal.style.display = 'none';
-        },
+        // --- Modals and UI Management ---
+        showApiKeyModal() { this.elements.apiKeyModal.style.display = 'flex'; },
+        hideApiKeyModal() { this.elements.apiKeyModal.style.display = 'none'; },
+        showCreatePostModal() { this.elements.createPostModal.style.display = 'flex'; },
+        hideCreatePostModal() { this.elements.createPostModal.style.display = 'none'; },
 
         handleSaveApiKey() {
             const apiKey = this.elements.modalApiKeyInput.value.trim();
-            if (!apiKey) {
-                helpers.showToast('Please enter a valid API key.', 'error');
-                return;
-            }
+            if (!apiKey) { helpers.showToast('Please enter a valid API key.', 'error'); return; }
             this.state.apiKey = apiKey;
             localStorage.setItem('dashboard_api_key', apiKey);
             helpers.showToast('API Key saved successfully!', 'success');
             this.hideApiKeyModal();
-            this.loadInitialData();
+            this.loadAndFetchAllData();
         },
 
-        // --- Data Handling ---
-        loadInitialData() {
-            const cachedData = localStorage.getItem('dashboard_cached_data');
-            const lastFetchTimestamp = parseInt(localStorage.getItem('dashboard_last_fetch_timestamp'), 10);
-            const now = Date.now();
+        async handleSendPost() {
+            const postContent = this.elements.postContentTextarea.value.trim();
+            if (!postContent) { helpers.showToast('Post content cannot be empty.', 'error'); return; }
+            const platforms = Array.from(this.elements.platformCheckboxes)
+                .filter(checkbox => checkbox.checked).map(checkbox => checkbox.value);
+            if (platforms.length === 0) { helpers.showToast('Please select at least one platform.', 'error'); return; }
 
-            if (cachedData && lastFetchTimestamp && (now - lastFetchTimestamp < this.REFRESH_INTERVAL_MS)) {
-                this.loadDataFromCache(cachedData, lastFetchTimestamp);
-            } else {
-                this.fetchAndCacheData();
-            }
-        },
-
-        loadDataFromCache(cachedData, timestamp) {
-            try {
-                this.state.allData = JSON.parse(cachedData);
-                this.elements.initialPrompt.style.display = 'none';
-                this.applyFiltersAndRender();
-                this.startRefreshTimer(timestamp + this.REFRESH_INTERVAL_MS);
-            } catch (error) {
-                this.fetchAndCacheData();
-            }
-        },
-
-        async fetchAndCacheData() {
-            if (!this.state.apiKey) {
-                this.showApiKeyModal();
-                return;
-            }
             helpers.toggleSpinner(true);
-            this.clearDashboard();
-
             try {
-                const data = await aggregatorAdapter.fetchInsights(this.state.apiKey);
-                if (!data) return; // Error is handled in adapter
-
-                const now = Date.now();
-                this.state.allData = data;
-                localStorage.setItem('dashboard_cached_data', JSON.stringify(data));
-                localStorage.setItem('dashboard_last_fetch_timestamp', now);
-
-                this.elements.initialPrompt.style.display = 'none';
-                this.applyFiltersAndRender();
-                this.startRefreshTimer(now + this.REFRESH_INTERVAL_MS);
-
+                await aggregatorAdapter.createPost({ apiKey: this.state.apiKey, post: postContent, platforms });
+                helpers.showToast('Post sent! Refreshing analytics...', 'success');
+                this.elements.postContentTextarea.value = '';
+                this.hideCreatePostModal();
+                setTimeout(() => this.loadAndFetchAllData(), 2000); // Refresh all data after posting
+            } catch (error) {
+                helpers.showToast(`Failed to send post: ${error.message}`, 'error');
             } finally {
                 helpers.toggleSpinner(false);
             }
         },
 
-        // --- Rendering Logic (largely unchanged) ---
+        // --- Data Handling & Aggregation ---
+        async loadAndFetchAllData() {
+            if (!this.state.apiKey) { this.showApiKeyModal(); return; }
+
+            helpers.toggleSpinner(true);
+            this.clearDashboard();
+            this.elements.refreshStatus.innerHTML = `<i class="fas fa-sync-alt"></i> <span>Fetching post history...</span>`;
+
+            const history = await aggregatorAdapter.fetchHistory(this.state.apiKey);
+
+            if (history.length === 0) {
+                helpers.log('No post history found to analyze.');
+                this.elements.initialPrompt.style.display = 'block';
+                this.elements.refreshStatus.innerHTML = `<i class="fas fa-info-circle"></i> <span>No posts found. Create one to begin!</span>`;
+                helpers.toggleSpinner(false);
+                return;
+            }
+
+            this.elements.refreshStatus.innerHTML = `<i class="fas fa-sync-alt"></i> <span>Fetching analytics for ${history.length} posts...</span>`;
+
+            const analyticsPromises = history.map(post =>
+                aggregatorAdapter.fetchPostAnalytics({ apiKey: this.state.apiKey, id: post.id })
+            );
+
+            const results = await Promise.all(analyticsPromises);
+            this.state.allPostsWithAnalytics = results.filter(r => r);
+
+            helpers.toggleSpinner(false);
+            this.elements.initialPrompt.style.display = 'none';
+            this.elements.refreshStatus.innerHTML = `<i class="fas fa-check-circle"></i> <span>Data loaded successfully.</span>`;
+            this.applyFiltersAndRender();
+        },
+
         applyFiltersAndRender() {
-            if (!this.state.allData) return;
+            if (!this.state.allPostsWithAnalytics) return;
+
             const selectedPlatform = this.elements.platformSelect.value;
             const selectedYear = parseInt(this.elements.yearSelect.value, 10);
             const selectedMonth = this.elements.monthSelect.value;
 
-            const filteredPosts = this.state.allData.topPosts.filter(post => {
-                const postDate = new Date(post.timestamp);
-                const platformMatch = selectedPlatform === 'all' || post.platform === selectedPlatform;
+            const filteredPosts = this.state.allPostsWithAnalytics.filter(post => {
+                const postPlatform = Object.keys(post).find(key => ['facebook', 'instagram', 'twitter', 'linkedin', 'youtube', 'pinterest', 'tiktok', 'reddit', 'threads', 'bluesky', 'snapchat', 'gmb'].includes(key));
+                if (!postPlatform) return false;
+
+                const postDate = new Date(post[postPlatform]?.analytics?.created || post[postPlatform]?.created || Date.now());
+
+                const platformMatch = selectedPlatform === 'all' || postPlatform === selectedPlatform;
                 const yearMatch = postDate.getFullYear() === selectedYear;
                 const monthMatch = selectedMonth === 'all' || (postDate.getMonth() + 1) == selectedMonth;
                 return platformMatch && yearMatch && monthMatch;
             });
 
-            const filteredKPIs = {
-                reach: 0, engagements: 0,
-                followers: this.state.allData.kpis.followers,
-                videoViews: 0,
-            };
-            filteredPosts.forEach(post => { filteredKPIs.engagements += post.stats.engagement || 0; });
-
-            const filteredDashboardData = { kpis: filteredKPIs, topPosts: filteredPosts };
-            this.renderDashboard(filteredDashboardData);
+            const aggregatedData = this.aggregateDataFromPosts(filteredPosts);
+            this.state.dashboardData = aggregatedData;
+            this.renderDashboard(aggregatedData);
         },
 
+        aggregateDataFromPosts(posts) {
+            const aggregated = {
+                kpis: { reach: 0, engagements: 0, videoViews: 0 },
+                topPosts: []
+            };
+
+            posts.forEach(post => {
+                const platformKey = Object.keys(post).find(key => ['facebook', 'instagram', 'twitter', 'linkedin', 'youtube', 'pinterest', 'tiktok', 'reddit', 'threads', 'bluesky', 'snapchat', 'gmb'].includes(key));
+                if (!platformKey) return;
+
+                const analytics = post[platformKey].analytics || {};
+                const engagement = analytics.engagementCount || (analytics.likeCount || 0) + (analytics.commentsCount || 0) + (analytics.sharesCount || 0) + (analytics.repostCount || 0) + (analytics.retweetCount || 0);
+                const reach = analytics.reachCount || analytics.impressions || analytics.impressionCount || 0;
+                const videoViews = analytics.playsCount || analytics.videoViews || analytics.views || 0;
+
+                aggregated.kpis.engagements += engagement;
+                aggregated.kpis.reach += reach;
+                aggregated.kpis.videoViews += videoViews;
+
+                aggregated.topPosts.push({
+                    platform: platformKey,
+                    id: post.id,
+                    thumbnail: analytics.mediaUrls?.[0]?.mediaUrl || post[platformKey]?.thumbnailUrl || 'https://via.placeholder.com/300x200',
+                    caption: analytics.caption || post[platformKey].post || 'No caption available.',
+                    url: post[platformKey].postUrl,
+                    stats: {
+                        likes: analytics.likeCount || 0,
+                        comments: analytics.commentsCount || 0,
+                        saves: analytics.savedCount || 'N/A',
+                        reach: reach,
+                        videoViews: videoViews,
+                        engagement: engagement
+                    },
+                    timestamp: analytics.created || post[platformKey].created
+                });
+            });
+            return aggregated;
+        },
+
+        // --- Rendering Sub-routines ---
         renderDashboard(data) {
             this.renderKPIs(data.kpis);
             this.renderPerformanceChart(data.topPosts);
@@ -182,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderPerformanceChart(posts) {
             if (this.state.charts.performance) this.state.charts.performance.destroy();
-            const topPosts = posts.slice(0, 10);
+            const topPosts = [...posts].sort((a,b) => b.stats.engagement - a.stats.engagement).slice(0, 10);
             const labels = topPosts.map(p => helpers.trimText(p.caption, 20) || `Post ${p.id.slice(-4)}`);
             const engagementData = topPosts.map(p => p.stats.engagement);
             this.state.charts.performance = new Chart(this.elements.performanceChartCanvas, {
@@ -201,9 +245,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderTopPosts(posts) {
             const container = this.elements.topPostsContainer;
-            if (posts.length === 0) { container.innerHTML = '<p>No posts found for the selected criteria.</p>'; return; }
+            if (posts.length === 0) { container.innerHTML = '<p>No posts match the current filters. Try selecting "All Platforms".</p>'; return; }
             container.innerHTML = '';
-            posts.slice(0, 12).forEach(post => {
+            [...posts].sort((a,b) => b.stats.engagement - a.stats.engagement).slice(0, 12).forEach(post => {
                 const postCard = document.createElement('a');
                 postCard.className = 'post-card';
                 postCard.href = post.url;
@@ -225,31 +269,12 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         exportData() {
-            if (!this.state.allData) { helpers.showToast('No data available to export.', 'error'); return; }
+            if (!this.state.dashboardData) { helpers.showToast('No data available to export.', 'error'); return; }
             const date = new Date().toISOString().split('T')[0];
             const filename = `dashboard-export-${date}`;
-            helpers.exportData(this.state.allData, filename, 'csv');
-            helpers.exportData(this.state.allData, filename, 'json');
+            helpers.exportData(this.state.dashboardData, filename, 'csv');
+            helpers.exportData(this.state.dashboardData, filename, 'json');
             helpers.showToast('Data export started.', 'success');
-        },
-
-        startRefreshTimer(nextRefreshTime) {
-            if (this.state.timerInterval) clearInterval(this.state.timerInterval);
-            const update = () => {
-                const remaining = nextRefreshTime - Date.now();
-                if (remaining <= 0) {
-                    this.elements.refreshStatus.innerHTML = `<i class="fas fa-sync-alt"></i> <span>Refreshing now...</span>`;
-                    clearInterval(this.state.timerInterval);
-                    location.reload();
-                    return;
-                }
-                const d = Math.floor(remaining / (1000 * 60 * 60 * 24));
-                const h = Math.floor((remaining / (1000 * 60 * 60)) % 24);
-                const m = Math.floor((remaining / 1000 / 60) % 60);
-                this.elements.refreshStatus.innerHTML = `<i class="fas fa-history"></i> <span>Next refresh in: ${d}d ${h}h ${m}m</span>`;
-            };
-            update();
-            this.state.timerInterval = setInterval(update, 1000);
         }
     };
 

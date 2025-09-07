@@ -103,6 +103,12 @@ body {
     color: var(--text-color);
 }
 
+.header-controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
 .refresh-status-section {
     display: flex;
     align-items: center;
@@ -440,12 +446,57 @@ select, input[type="text"] {
     margin-bottom: 25px;
 }
 
-.modal-content input {
+.close-modal-btn {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 2rem;
+    color: #aaa;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.close-modal-btn:hover {
+    color: #333;
+}
+
+.modal-content input,
+.modal-content textarea {
     width: 100%;
     padding: 12px;
     margin-bottom: 20px;
     border: 1px solid var(--border-color);
     border-radius: 5px;
+    font-family: var(--font-family);
+}
+
+.modal-content textarea {
+    min-height: 150px;
+    resize: vertical;
+}
+
+.platform-selector {
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.platform-selector p {
+    margin-bottom: 10px;
+    font-weight: 500;
+}
+
+.platform-selector label {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 15px;
+    cursor: pointer;
+}
+
+.platform-selector input {
+    margin-right: 5px;
+    width: auto;
 }
 
 /* --- Responsive Design --- */

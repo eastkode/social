@@ -1,106 +1,79 @@
 // FILE: js/adapters/aggregator.js
 
 /**
- * API Adapter specifically for the Ayrshare Social Media API.
- * Updated to be resilient and work within Free Plan limitations.
+ * API Adapter for the Ayrshare API.
+ * Final, corrected version with resilient /history fetching.
  */
 const aggregatorAdapter = {
-    apiBaseUrl: 'https://app.ayrshare.com/api',
+    apiBaseUrl: 'https://api.ayrshare.com/api',
 
     /**
-     * Fetches post history from the Ayrshare API.
-     * @param {string} apiKey The user's API key for Ayrshare.
-     * @returns {Promise<object|null>} A promise that resolves with the formatted insights data.
+     * Fetches the user's post history. Handles errors gracefully.
+     * @param {string} apiKey The user's API key.
+     * @returns {Promise<Array>} A promise that resolves to an array of post objects, or an empty array on error.
      */
-    async fetchInsights(apiKey) {
-        if (!apiKey) {
-            helpers.showToast('API Key is missing.', 'error');
-            return null;
-        }
-
-        helpers.log('Fetching post history from Ayrshare...');
-
+    async fetchHistory(apiKey) {
         try {
-            // Only call the /history endpoint
-            const historyData = await this.fetchHistory(apiKey);
-
-            // The formatData function will handle null/empty data
-            const formattedData = this.formatData(historyData);
-            helpers.log('Successfully processed data from Ayrshare.');
-            return formattedData;
-
+            const response = await fetch(`${this.apiBaseUrl}/history`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` }
+            });
+            if (!response.ok) {
+                helpers.log(`API /history returned status ${response.status}. This is expected if no posts exist yet.`, 'WARN');
+                return []; // Return empty array on error to prevent crashing
+            }
+            const data = await response.json();
+            return Array.isArray(data) ? data : (data.history || []);
         } catch (error) {
-            // This catch is for network errors, not API errors handled in fetchHistory
-            helpers.showToast('A network error occurred.', 'error');
-            helpers.log(`Network Error: ${error.message}`, 'ERROR');
-            return null;
+            helpers.log(`Network error fetching history: ${error.message}`, 'ERROR');
+            return []; // Return empty array on network error
         }
     },
 
     /**
-     * Fetches the /history endpoint and handles API errors gracefully.
-     * @param {string} apiKey The user's API key.
-     * @returns {Promise<object|null>} The JSON response from the API or null if it fails.
+     * Sends a new post to the Ayrshare API.
+     * @param {object} options
+     * @param {string} options.apiKey The user's API key.
+     * @param {string} options.post The text content of the post.
+     * @param {string[]} options.platforms An array of platforms to post to.
+     * @returns {Promise<object>} The JSON response from the API, which includes the new post's ID.
      */
-    async fetchHistory(apiKey) {
-        const response = await fetch(`${this.apiBaseUrl}/history`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`
-            }
+    async createPost({ apiKey, post, platforms }) {
+        const response = await fetch(`${this.apiBaseUrl}/post`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            body: JSON.stringify({ post, platforms })
         });
-
         if (!response.ok) {
-            // Handle 400 Bad Request (likely no history) and other errors gracefully
-            helpers.log(`API returned status ${response.status}. This can happen if there are no posts yet.`, 'WARN');
-            return null; // Return null instead of throwing an error
+            const errorData = await response.json();
+            throw new Error(errorData.message || `API Error for /post: ${response.statusText}`);
         }
         return response.json();
     },
 
     /**
-     * Formats the raw API data from Ayrshare's /history endpoint.
-     * @param {object | null} historyData The response from the /history endpoint.
-     * @returns {object} A standardized data object for the dashboard.
+     * Fetches analytics for a single post using its ID.
+     * @param {object} options
+     * @param {string} options.apiKey The user's API key.
+     * @param {string} options.id The top-level Ayrshare ID of the post.
+     * @returns {Promise<object|null>} The JSON response, or null on error.
      */
-    formatData(historyData) {
-        const posts = historyData ? (Array.isArray(historyData) ? historyData : (historyData.history || [])) : [];
-
-        const formatted = {
-            kpis: { reach: 0, engagements: 0, followers: 'N/A', videoViews: 0 },
-            topPosts: []
-        };
-
-        if (posts.length === 0) {
-            helpers.log("No post history found.", "INFO");
-        }
-
-        posts.forEach(post => {
-            const postEngagements = (post.stats?.likes || 0) + (post.stats?.comments || 0) + (post.stats?.shares || 0);
-            formatted.kpis.engagements += postEngagements;
-
-            formatted.topPosts.push({
-                platform: post.platform.toLowerCase(),
-                id: post.id,
-                thumbnail: post.mediaUrls?.[0] || 'https://via.placeholder.com/300x200',
-                caption: post.post,
-                url: post.postUrl,
-                stats: {
-                    likes: post.stats?.likes || 0,
-                    comments: post.stats?.comments || 0,
-                    saves: 'N/A',
-                    reach: 'N/A',
-                    engagement: postEngagements
-                },
-                timestamp: post.timestamp || post.created_at
+    async fetchPostAnalytics({ apiKey, id }) {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/analytics/post`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+                body: JSON.stringify({ id })
             });
-        });
-
-        helpers.log("Followers, Reach, and Video Views KPIs are not available on this API plan.", "WARN");
-
-        formatted.topPosts.sort((a, b) => b.stats.engagement - a.stats.engagement);
-
-        return formatted;
+            if (!response.ok) {
+                const errorData = await response.json();
+                helpers.log(`Could not fetch analytics for post ${id}: ${errorData.message}`, 'WARN');
+                return null;
+            }
+            return response.json();
+        } catch (error) {
+            helpers.log(`Network error fetching analytics for post ${id}: ${error.message}`, 'ERROR');
+            return null;
+        }
     }
 };
