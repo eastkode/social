@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Media Dashboard</title>
+
+    <!-- Google Fonts: Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+
+
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container"></div>
+
+    <!-- Loading Spinner -->
+    <div id="loading-spinner" class="spinner-overlay" style="display: none;">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <i class="fas fa-chart-line"></i>
+                <h1>Dashboard</h1>
+            </div>
+            <nav class="auth-buttons">
+                <button id="meta-login-btn" class="btn btn-meta"><i class="fab fa-facebook"></i> Login with Meta</button>
+                <button id="linkedin-login-btn" class="btn btn-linkedin"><i class="fab fa-linkedin"></i> Login with LinkedIn</button>
+                <div id="user-profile" style="display: none;">
+                    <img id="user-avatar" src="" alt="User">
+                    <span id="user-name"></span>
+                    <button id="logout-btn" class="btn btn-logout"><i class="fas fa-sign-out-alt"></i></button>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <!-- Dashboard Area (hidden until login) -->
+            <div id="dashboard-area" style="display: none;">
+                <!-- Filters -->
+                <section class="card filters-card">
+                    <h2 class="card-title"><i class="fas fa-filter"></i> Filters</h2>
+                    <div class="filter-controls">
+                        <div class="form-group">
+                            <label for="platform-select">Platform</label>
+                            <select id="platform-select">
+                                <option value="all">All Platforms</option>
+                                <option value="meta">Meta (Facebook & IG)</option>
+                                <option value="linkedin">LinkedIn</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="month-select">Month</label>
+                            <select id="month-select"></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="year-select">Year</label>
+                            <select id="year-select"></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="date-range">Custom Date Range</label>
+                            <input type="text" id="date-range-picker" placeholder="YYYY-MM-DD to YYYY-MM-DD">
+                        </div>
+                        <button id="apply-filters-btn" class="btn"><i class="fas fa-check"></i> Apply</button>
+                        <button id="export-data-btn" class="btn btn-accent"><i class="fas fa-download"></i> Export Data</button>
+                    </div>
+                </section>
+
+                <!-- KPIs -->
+                <section class="kpi-grid">
+                    <div class="card kpi-card">
+                        <h3><i class="fas fa-bullseye"></i> Total Reach</h3>
+                        <p id="kpi-reach">—</p>
+                    </div>
+                    <div class="card kpi-card">
+                        <h3><i class="fas fa-heart"></i> Engagements</h3>
+                        <p id="kpi-engagements">—</p>
+                    </div>
+                    <div class="card kpi-card">
+                        <h3><i class="fas fa-users"></i> New Followers</h3>
+                        <p id="kpi-followers">—</p>
+                    </div>
+                    <div class="card kpi-card">
+                        <h3><i class="fas fa-video"></i> Video Views</h3>
+                        <p id="kpi-video-views">—</p>
+                    </div>
+                </section>
+
+                <!-- Charts -->
+                <section class="chart-grid">
+                    <div class="card chart-card">
+                        <h2 class="card-title"><i class="fas fa-chart-line"></i> Growth Over Time</h2>
+                        <canvas id="growth-chart"></canvas>
+                    </div>
+                    <div class="card chart-card">
+                        <h2 class="card-title"><i class="fas fa-chart-bar"></i> Post Performance</h2>
+                        <canvas id="performance-chart"></canvas>
+                    </div>
+                </section>
+
+                <!-- Top Posts -->
+                <section class="card">
+                    <h2 class="card-title"><i class="fas fa-star"></i> Top Posts by Engagement</h2>
+                    <div id="top-posts-container" class="top-posts-grid">
+                        <!-- Post cards will be inserted here by JS -->
+                        <p>No data available. Please select a platform and date range.</p>
+                    </div>
+                </section>
+
+                <!-- Logs -->
+                <section class="card">
+                    <h2 class="card-title"><i class="fas fa-file-alt"></i> Logs & Errors</h2>
+                    <pre id="logs-output"></pre>
+                </section>
+            </div>
+
+            <!-- Login Prompt -->
+            <div id="login-prompt" class="card login-prompt-card">
+                <h2>Welcome to your Social Media Dashboard</h2>
+                <p>Please log in with a social platform to view your analytics.</p>
+                <i class="fas fa-arrow-up"></i>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>&copy; <span id="footer-year"></span> Social Media Dashboard. All Rights Reserved.</p>
+    </footer>
+
+    <!-- Scripts -->
+    <!-- Libraries -->
+    <script src="js/utils/pkce.js"></script>
+    <script src="js/utils/helpers.js"></script>
+    <!-- API Adapters -->
+    <script src="js/adapters/meta.js"></script>
+    <script src="js/adapters/linkedin.js"></script>
+    <!-- Main App Logic -->
+    <script src="js/app.js"></script>
+
+</body>
+</html>
