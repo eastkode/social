@@ -258,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     datasets[platform] = {
                         label: `${platform.charAt(0).toUpperCase() + platform.slice(1)} Followers`,
                         data: [],
-                        borderColor: platform === 'facebook' ? '#1877F2' : '#0A66C2',
+                        borderColor: platform === 'facebook' ? '#004a8d' : '#0A224A',
                         tension: 0.3,
                         fill: false
                     };
@@ -294,8 +294,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     datasets: [{
                         label: 'Engagement',
                         data: engagementData,
-                        backgroundColor: 'rgba(0, 74, 141, 0.7)',
-                        borderColor: 'rgba(0, 74, 141, 1)',
+                        backgroundColor: 'rgba(10, 34, 74, 0.8)',
+                        borderColor: 'rgba(10, 34, 74, 1)',
                         borderWidth: 1
                     }]
                 },

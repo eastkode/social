@@ -2,16 +2,17 @@
 
 /* --- Global Styles & Variables --- */
 :root {
-    --primary-color: #004a8d;
-    --background-color: #f5f7fa;
-    --accent-color: #ffcc00;
+    --primary-color: #0A224A; /* Amity Deep Blue */
+    --accent-color: #FFC400; /* Amity Gold */
+    --title-color: #004a8d; /* A brighter blue for titles */
+    --background-color: #F8F9FA;
     --card-bg-color: #ffffff;
-    --text-color: #333;
-    --text-light-color: #666;
-    --border-color: #e0e0e0;
+    --text-color: #212529;
+    --text-light-color: #6c757d;
+    --border-color: #dee2e6;
     --shadow-color: rgba(0, 0, 0, 0.05);
     --success-color: #28a745;
-    --error-color: #dc3545;
+    --error-color: #d9534f;
     --font-family: 'Poppins', sans-serif;
 }
 
@@ -53,17 +54,18 @@ body {
 .logo {
     display: flex;
     align-items: center;
-    gap: 10px;
-    color: var(--primary-color);
+    gap: 15px;
 }
 
-.logo i {
-    font-size: 1.8rem;
+.header-logo {
+    height: 45px;
+    width: auto;
 }
 
 .logo h1 {
     font-size: 1.5rem;
     font-weight: 600;
+    color: var(--primary-color);
 }
 
 /* --- Buttons & Forms --- */
@@ -87,12 +89,12 @@ body {
 }
 
 .btn-meta {
-    background-color: #1877F2;
+    background-color: #1877F2; /* Default Facebook Blue */
     color: white;
 }
 
 .btn-linkedin {
-    background-color: #0A66C2;
+    background-color: #0077b5; /* Default LinkedIn Blue */
     color: white;
 }
 
@@ -160,7 +162,7 @@ select, input[type="text"] {
     display: flex;
     align-items: center;
     gap: 10px;
-    color: var(--primary-color);
+    color: var(--title-color);
 }
 
 .login-prompt-card {
@@ -311,12 +313,22 @@ select, input[type="text"] {
 }
 
 .footer {
-    text-align: center;
-    padding: 1.5rem 0;
+    background-color: var(--text-color);
+    color: rgba(255, 255, 255, 0.8);
+    padding: 2rem 0;
     margin-top: 2rem;
-    border-top: 1px solid var(--border-color);
-    color: var(--text-light-color);
-    font-size: 0.9rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.footer-logo {
+    height: 40px;
+    width: auto;
+    filter: brightness(0) invert(1);
+    opacity: 0.8;
 }
 
 /* --- Utilities --- */
