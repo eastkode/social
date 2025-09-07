@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Social Media Dashboard</title>
+    <title>Social Media Report organic</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -19,10 +19,9 @@
         <div class="container">
             <div class="logo">
                 <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEg_zb5s1d6Cx1yTSjSHdwqTocAhUFtYBAuRcjJd7aFxeeVAxnVT_Xa7g3Qfn8WV54YTaI2z5ivVzHzDoexsP4Pw3b0sTOeyhuiuVepJlO1stNj-g_vi6mIGIl7JI9rBr5hyphenhyphenu3Nzmzr6QtJ6ts_MjfQJ8alZTvEiZ7JRzRTVEKUt36KcSc_Q98rWp37CjBdC/s320/Amity%20Jharkhand%20Logo-01.png" alt="Amity University Logo" class="header-logo">
-                <h1>Dashboard</h1>
+                <h1>Social Media Report organic</h1>
             </div>
             <nav class="header-controls">
-                <button id="create-post-btn" class="btn btn-accent"><i class="fas fa-plus-circle"></i> Create Post</button>
                 <div class="refresh-status-section">
                     <div id="refresh-status">
                         <i class="fas fa-info-circle"></i>
@@ -43,7 +42,6 @@
                             <label for="platform-select">Platform</label>
                             <select id="platform-select">
                                 <option value="all">All Platforms</option>
-                                <option value="twitter">Twitter</option>
                                 <option value="facebook">Facebook</option>
                                 <option value="instagram">Instagram</option>
                                 <option value="linkedin">LinkedIn</option>
@@ -90,9 +88,9 @@
                 </section>
 
                 <div id="initial-prompt" class="card login-prompt-card">
-                    <h2>Welcome to your Social Media Dashboard</h2>
-                    <p>No data found. Use the "Create Post" button to get started!</p>
-                    <i class="fas fa-rocket"></i>
+                    <h2>Welcome to your Social Media Report</h2>
+                    <p>Fetching data, please wait...</p>
+                    <i class="fas fa-spinner fa-spin"></i>
                 </div>
             </div>
         </div>
@@ -100,38 +98,12 @@
 
     <footer class="footer">
         <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEg_zb5s1d6Cx1yTSjSHdwqTocAhUFtYBAuRcjJd7aFxeeVAxnVT_Xa7g3Qfn8WV54YTaI2z5ivVzHzDoexsP4Pw3b0sTOeyhuiuVepJlO1stNj-g_vi6mIGIl7JI9rBr5hyphenhyphenu3Nzmzr6QtJ6ts_MjfQJ8alZTvEiZ7JRzRTVEKUt36KcSc_Q98rWp37CjBdC/s320/Amity%20Jharkhand%20Logo-01.png" alt="Amity University Footer Logo" class="footer-logo">
-        <p>&copy; <span id="footer-year"></span> Social Media Dashboard. All Rights Reserved.</p>
+        <p>&copy; <span id="footer-year"></span> Social Media Report organic. All Rights Reserved.</p>
     </footer>
 
     <script src="js/utils/helpers.js"></script>
-    <script src="js/adapters/aggregator.js"></script>
+    <script src="js/adapters/google_sheet.js"></script>
     <script src="js/app.js"></script>
-
-    <div id="api-key-modal" class="modal-overlay" style="display: none;">
-        <div class="modal-content">
-            <button class="close-modal-btn" data-modal-id="api-key-modal">&times;</button>
-            <h2>Enter Your API Key</h2>
-            <p>Please enter your Ayrshare API key. It will be saved in your browser for future visits.</p>
-            <input type="password" id="modal-api-key-input" placeholder="Paste your API key here">
-            <button id="save-api-key-btn" class="btn">Save and Continue</button>
-        </div>
-    </div>
-
-    <div id="create-post-modal" class="modal-overlay" style="display: none;">
-        <div class="modal-content">
-            <button class="close-modal-btn" data-modal-id="create-post-modal">&times;</button>
-            <h2>Create a New Post</h2>
-            <textarea id="post-content-textarea" placeholder="What's on your mind?"></textarea>
-            <div class="platform-selector">
-                <p>Post to:</p>
-                <label><input type="checkbox" name="platforms" value="twitter"> Twitter</label>
-                <label><input type="checkbox" name="platforms" value="facebook"> Facebook</label>
-                <label><input type="checkbox" name="platforms" value="instagram"> Instagram</label>
-                <label><input type="checkbox" name="platforms" value="linkedin"> LinkedIn</label>
-            </div>
-            <button id="send-post-btn" class="btn"><i class="fas fa-paper-plane"></i> Send Post</button>
-        </div>
-    </div>
 
 </body>
 </html>
