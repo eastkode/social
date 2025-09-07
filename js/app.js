@@ -2,12 +2,12 @@
 
 /**
  * Main application logic for the Social Media Dashboard.
- * Refactored to use an automated, time-based refresh system.
+ * Final version with automated refresh and user-friendly API key modal.
  */
 document.addEventListener('DOMContentLoaded', () => {
     const app = {
         // --- Constants ---
-        REFRESH_INTERVAL_MS: 3 * 24 * 60 * 60 * 1000, // 3 days in milliseconds
+        REFRESH_INTERVAL_MS: 3 * 24 * 60 * 60 * 1000, // 3 days
 
         // --- DOM Elements ---
         elements: {
@@ -24,6 +24,10 @@ document.addEventListener('DOMContentLoaded', () => {
             kpiVideoViews: document.getElementById('kpi-video-views'),
             performanceChartCanvas: document.getElementById('performance-chart'),
             topPostsContainer: document.getElementById('top-posts-container'),
+            // Modal Elements
+            apiKeyModal: document.getElementById('api-key-modal'),
+            modalApiKeyInput: document.getElementById('modal-api-key-input'),
+            saveApiKeyBtn: document.getElementById('save-api-key-btn'),
         },
 
         // --- State ---
@@ -44,41 +48,55 @@ document.addEventListener('DOMContentLoaded', () => {
             this.state.apiKey = localStorage.getItem('dashboard_api_key');
 
             if (!this.state.apiKey) {
-                helpers.showToast('API Key not set.', 'error');
-                helpers.log('API Key not found in localStorage. Please set it in the console.', 'ERROR');
-                this.elements.refreshStatus.innerHTML = `<i class="fas fa-exclamation-triangle"></i> <span>API Key Not Set</span>`;
-                return;
+                helpers.log('API Key not found. Prompting user.');
+                this.showApiKeyModal();
+            } else {
+                this.loadInitialData();
             }
-
-            this.loadInitialData();
         },
 
         // --- Event Listeners ---
         addEventListeners() {
             this.elements.applyFiltersBtn.addEventListener('click', () => this.applyFiltersAndRender());
             this.elements.exportDataBtn.addEventListener('click', () => this.exportData());
+            this.elements.saveApiKeyBtn.addEventListener('click', () => this.handleSaveApiKey());
         },
 
-        /**
-         * Determines whether to fetch new data or load from cache.
-         */
+        // --- API Key Management ---
+        showApiKeyModal() {
+            this.elements.apiKeyModal.style.display = 'flex';
+        },
+
+        hideApiKeyModal() {
+            this.elements.apiKeyModal.style.display = 'none';
+        },
+
+        handleSaveApiKey() {
+            const apiKey = this.elements.modalApiKeyInput.value.trim();
+            if (!apiKey) {
+                helpers.showToast('Please enter a valid API key.', 'error');
+                return;
+            }
+            this.state.apiKey = apiKey;
+            localStorage.setItem('dashboard_api_key', apiKey);
+            helpers.showToast('API Key saved successfully!', 'success');
+            this.hideApiKeyModal();
+            this.loadInitialData();
+        },
+
+        // --- Data Handling ---
         loadInitialData() {
             const cachedData = localStorage.getItem('dashboard_cached_data');
             const lastFetchTimestamp = parseInt(localStorage.getItem('dashboard_last_fetch_timestamp'), 10);
             const now = Date.now();
 
             if (cachedData && lastFetchTimestamp && (now - lastFetchTimestamp < this.REFRESH_INTERVAL_MS)) {
-                helpers.log('Loading fresh data from cache.');
                 this.loadDataFromCache(cachedData, lastFetchTimestamp);
             } else {
-                helpers.log('Cached data is stale or missing. Fetching new data...');
                 this.fetchAndCacheData();
             }
         },
 
-        /**
-         * Loads and renders data from localStorage cache.
-         */
         loadDataFromCache(cachedData, timestamp) {
             try {
                 this.state.allData = JSON.parse(cachedData);
@@ -86,46 +104,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 this.applyFiltersAndRender();
                 this.startRefreshTimer(timestamp + this.REFRESH_INTERVAL_MS);
             } catch (error) {
-                helpers.log('Failed to parse cached data. Fetching new data.', 'ERROR');
                 this.fetchAndCacheData();
             }
         },
 
-        /**
-         * Fetches data from the API and caches it in localStorage.
-         */
         async fetchAndCacheData() {
+            if (!this.state.apiKey) {
+                this.showApiKeyModal();
+                return;
+            }
             helpers.toggleSpinner(true);
             this.clearDashboard();
 
             try {
                 const data = await aggregatorAdapter.fetchInsights(this.state.apiKey);
-
-                if (!data) {
-                    helpers.showToast('No data returned from the API.', 'error');
-                    return;
-                }
+                if (!data) return; // Error is handled in adapter
 
                 const now = Date.now();
                 this.state.allData = data;
                 localStorage.setItem('dashboard_cached_data', JSON.stringify(data));
                 localStorage.setItem('dashboard_last_fetch_timestamp', now);
 
-                helpers.log('Successfully fetched and cached new data.');
                 this.elements.initialPrompt.style.display = 'none';
                 this.applyFiltersAndRender();
                 this.startRefreshTimer(now + this.REFRESH_INTERVAL_MS);
 
-            } catch (error) {
-                helpers.showToast('An error occurred while fetching data.', 'error');
             } finally {
                 helpers.toggleSpinner(false);
             }
         },
 
+        // --- Rendering Logic (largely unchanged) ---
         applyFiltersAndRender() {
             if (!this.state.allData) return;
-
             const selectedPlatform = this.elements.platformSelect.value;
             const selectedYear = parseInt(this.elements.yearSelect.value, 10);
             const selectedMonth = this.elements.monthSelect.value;
@@ -143,16 +154,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 followers: this.state.allData.kpis.followers,
                 videoViews: 0,
             };
+            filteredPosts.forEach(post => { filteredKPIs.engagements += post.stats.engagement || 0; });
 
-            filteredPosts.forEach(post => {
-                filteredKPIs.engagements += post.stats.engagement || 0;
-            });
-
-            const filteredDashboardData = {
-                kpis: filteredKPIs,
-                topPosts: filteredPosts,
-            };
-
+            const filteredDashboardData = { kpis: filteredKPIs, topPosts: filteredPosts };
             this.renderDashboard(filteredDashboardData);
         },
 
@@ -184,16 +188,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const topPosts = posts.slice(0, 10);
             const labels = topPosts.map(p => helpers.trimText(p.caption, 20) || `Post ${p.id.slice(-4)}`);
             const engagementData = topPosts.map(p => p.stats.engagement);
-
             this.state.charts.performance = new Chart(this.elements.performanceChartCanvas, {
                 type: 'bar',
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: 'Engagement',
-                        data: engagementData,
-                        backgroundColor: 'rgba(10, 34, 74, 0.8)',
-                        borderColor: 'rgba(10, 34, 74, 1)',
+                        label: 'Engagement', data: engagementData,
+                        backgroundColor: 'rgba(10, 34, 74, 0.8)', borderColor: 'rgba(10, 34, 74, 1)',
                         borderWidth: 1
                     }]
                 },
@@ -203,10 +204,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderTopPosts(posts) {
             const container = this.elements.topPostsContainer;
-            if (posts.length === 0) {
-                container.innerHTML = '<p>No posts found for the selected criteria.</p>';
-                return;
-            }
+            if (posts.length === 0) { container.innerHTML = '<p>No posts found for the selected criteria.</p>'; return; }
             container.innerHTML = '';
             posts.slice(0, 12).forEach(post => {
                 const postCard = document.createElement('a');
@@ -230,10 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         exportData() {
-            if (!this.state.allData) {
-                helpers.showToast('No data available to export.', 'error');
-                return;
-            }
+            if (!this.state.allData) { helpers.showToast('No data available to export.', 'error'); return; }
             const date = new Date().toISOString().split('T')[0];
             const filename = `dashboard-export-${date}`;
             helpers.exportData(this.state.allData, filename, 'csv');
@@ -243,24 +238,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         startRefreshTimer(nextRefreshTime) {
             if (this.state.timerInterval) clearInterval(this.state.timerInterval);
-
             const update = () => {
                 const remaining = nextRefreshTime - Date.now();
                 if (remaining <= 0) {
                     this.elements.refreshStatus.innerHTML = `<i class="fas fa-sync-alt"></i> <span>Refreshing now...</span>`;
                     clearInterval(this.state.timerInterval);
-                    location.reload(); // Simple way to trigger a refresh
+                    location.reload();
                     return;
                 }
-
-                const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
-                const hours = Math.floor((remaining / (1000 * 60 * 60)) % 24);
-                const minutes = Math.floor((remaining / 1000 / 60) % 60);
-                const seconds = Math.floor((remaining / 1000) % 60);
-
-                this.elements.refreshStatus.innerHTML = `<i class="fas fa-history"></i> <span>Next refresh in: ${days}d ${hours}h ${minutes}m ${seconds}s</span>`;
+                const d = Math.floor(remaining / (1000 * 60 * 60 * 24));
+                const h = Math.floor((remaining / (1000 * 60 * 60)) % 24);
+                const m = Math.floor((remaining / 1000 / 60) % 60);
+                this.elements.refreshStatus.innerHTML = `<i class="fas fa-history"></i> <span>Next refresh in: ${d}d ${h}h ${m}m</span>`;
             };
-
             update();
             this.state.timerInterval = setInterval(update, 1000);
         }
