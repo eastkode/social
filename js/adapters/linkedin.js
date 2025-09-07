@@ -6,7 +6,7 @@
  */
 const linkedinAdapter = {
     // --- IMPORTANT: REPLACE WITH YOUR LINKEDIN APP INFO ---
-    clientId: 'YOUR_LINKEDIN_CLIENT_ID',
+    clientId: '86c13pla91jwcl',
     // Make sure this Redirect URI is configured in your LinkedIn App settings
     redirectUri: window.location.origin + window.location.pathname,
     // ---------------------------------------------------------
