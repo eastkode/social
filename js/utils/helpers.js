@@ -10,7 +10,10 @@ const helpers = {
      * @param {string} type 'success' or 'error'.
      */
     showToast(message, type = 'success') {
-        const container = document.getElementById('toast-container');
+        const container = document.createElement('div');
+        container.id = 'toast-container';
+        document.body.appendChild(container);
+
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
 
@@ -21,19 +24,19 @@ const helpers = {
 
         setTimeout(() => {
             toast.remove();
+            if (container.children.length === 0) {
+                container.remove();
+            }
         }, 5000);
     },
 
     /**
-     * Logs messages to the on-screen log console.
+     * Logs messages to the console with a standard prefix.
      * @param {string} message The message to log.
      * @param {string} [type='INFO'] The type of log (e.g., 'ERROR', 'WARN').
      */
     log(message, type = 'INFO') {
-        const output = document.getElementById('logs-output');
-        const timestamp = new Date().toISOString();
-        const existingText = output.textContent;
-        output.textContent = `[${timestamp}] [${type}] ${message}\n${existingText}`;
+        console.log(`[Dashboard] [${type}] ${message}`);
     },
 
     /**
@@ -42,12 +45,14 @@ const helpers = {
      */
     toggleSpinner(show) {
         const spinner = document.getElementById('loading-spinner');
-        spinner.style.display = show ? 'flex' : 'none';
+        if (spinner) {
+            spinner.style.display = show ? 'flex' : 'none';
+        }
     },
 
     /**
      * Formats a number with commas as thousands separators.
-     * @param {number} num The number to format.
+     * @param {number | string} num The number to format.
      * @returns {string} The formatted number or '—' if input is invalid.
      */
     formatNumber(num) {
@@ -64,7 +69,8 @@ const helpers = {
         const currentYear = new Date().getFullYear();
         const currentMonth = new Date().getMonth();
 
-        // Populate months
+        if (!monthSelect || !yearSelect) return;
+
         const months = [
             'January', 'February', 'March', 'April', 'May', 'June',
             'July', 'August', 'September', 'October', 'November', 'December'
@@ -80,7 +86,6 @@ const helpers = {
             monthSelect.appendChild(option);
         });
 
-        // Populate years (last 5 years)
         yearSelect.innerHTML = '';
         for (let i = 0; i < 5; i++) {
             const year = currentYear - i;
@@ -95,7 +100,10 @@ const helpers = {
      * Sets the copyright year in the footer.
      */
     setFooterYear() {
-        document.getElementById('footer-year').textContent = new Date().getFullYear();
+        const footerYear = document.getElementById('footer-year');
+        if (footerYear) {
+            footerYear.textContent = new Date().getFullYear();
+        }
     },
 
     /**
@@ -138,7 +146,6 @@ const helpers = {
     },
 
     exportAsCsv(data, filename) {
-        // This is a simplified CSV export for top posts. A real implementation would be more robust.
         const posts = data.topPosts || [];
         if (posts.length === 0) {
             this.showToast('No data to export as CSV', 'error');
@@ -148,10 +155,10 @@ const helpers = {
         const headers = ['Platform', 'Caption', 'Likes', 'Comments', 'Saves', 'Reach', 'URL'];
         const rows = posts.map(post => [
             post.platform,
-            `"${post.caption.replace(/"/g, '""')}"`,
+            `"${(post.caption || '').replace(/"/g, '""')}"`,
             post.stats.likes,
             post.stats.comments,
-            post.stats.saves || 'N/A',
+            post.stats.saves,
             post.stats.reach,
             post.url
         ].join(','));

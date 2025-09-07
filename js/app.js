@@ -2,7 +2,7 @@
 
 /**
  * Main application logic for the Social Media Dashboard.
- * Final, corrected version with two-step /history -> /analytics/post data flow.
+ * Final, correct version with two-step /history -> /analytics/post data flow.
  */
 document.addEventListener('DOMContentLoaded', () => {
     const app = {
@@ -95,10 +95,10 @@ document.addEventListener('DOMContentLoaded', () => {
             helpers.toggleSpinner(true);
             try {
                 await aggregatorAdapter.createPost({ apiKey: this.state.apiKey, post: postContent, platforms });
-                helpers.showToast('Post sent! Refreshing analytics...', 'success');
+                helpers.showToast('Post sent! Refreshing dashboard...', 'success');
                 this.elements.postContentTextarea.value = '';
                 this.hideCreatePostModal();
-                setTimeout(() => this.loadAndFetchAllData(), 2000); // Refresh all data after posting
+                setTimeout(() => this.loadAndFetchAllData(), 3000); // Wait 3s for API to process post before fetching
             } catch (error) {
                 helpers.showToast(`Failed to send post: ${error.message}`, 'error');
             } finally {
@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             helpers.toggleSpinner(false);
             this.elements.initialPrompt.style.display = 'none';
-            this.elements.refreshStatus.innerHTML = `<i class="fas fa-check-circle"></i> <span>Data loaded successfully.</span>`;
+            this.elements.refreshStatus.innerHTML = `<i class="fas fa-check-circle"></i> <span>Data loaded. Displaying ${this.state.allPostsWithAnalytics.length} posts.</span>`;
             this.applyFiltersAndRender();
         },
 
@@ -149,7 +149,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const filteredPosts = this.state.allPostsWithAnalytics.filter(post => {
                 const postPlatform = Object.keys(post).find(key => ['facebook', 'instagram', 'twitter', 'linkedin', 'youtube', 'pinterest', 'tiktok', 'reddit', 'threads', 'bluesky', 'snapchat', 'gmb'].includes(key));
                 if (!postPlatform) return false;
-
                 const postDate = new Date(post[postPlatform]?.analytics?.created || post[postPlatform]?.created || Date.now());
 
                 const platformMatch = selectedPlatform === 'all' || postPlatform === selectedPlatform;
@@ -164,11 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         aggregateDataFromPosts(posts) {
-            const aggregated = {
-                kpis: { reach: 0, engagements: 0, videoViews: 0 },
-                topPosts: []
-            };
-
+            const aggregated = { kpis: { reach: 0, engagements: 0, videoViews: 0 }, topPosts: [] };
             posts.forEach(post => {
                 const platformKey = Object.keys(post).find(key => ['facebook', 'instagram', 'twitter', 'linkedin', 'youtube', 'pinterest', 'tiktok', 'reddit', 'threads', 'bluesky', 'snapchat', 'gmb'].includes(key));
                 if (!platformKey) return;
@@ -202,7 +197,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return aggregated;
         },
 
-        // --- Rendering Sub-routines ---
         renderDashboard(data) {
             this.renderKPIs(data.kpis);
             this.renderPerformanceChart(data.topPosts);
