@@ -2,15 +2,15 @@
 
 /* --- Global Styles & Variables --- */
 :root {
-    --primary-color: #4A90E2; /* A fresh, modern blue */
-    --accent-color: #50E3C2; /* A vibrant teal/mint accent */
-    --title-color: #333; /* Darker, more readable titles */
-    --background-color: #f4f7f6; /* Lighter, cleaner background */
+    --primary-color: #0A224A; /* Amity Deep Blue */
+    --accent-color: #FFC400; /* Amity Gold */
+    --title-color: #004a8d; /* A brighter blue for titles */
+    --background-color: #F8F9FA;
     --card-bg-color: #ffffff;
-    --text-color: #555;
-    --text-light-color: #888;
-    --border-color: #e0e0e0;
-    --shadow-color: rgba(0, 0, 0, 0.08);
+    --text-color: #212529;
+    --text-light-color: #6c757d;
+    --border-color: #dee2e6;
+    --shadow-color: rgba(0, 0, 0, 0.05);
     --success-color: #28a745;
     --error-color: #d9534f;
     --font-family: 'Poppins', sans-serif;
@@ -144,7 +144,7 @@ select, input[type="text"] {
 select:focus, input[type="text"]:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+    box-shadow: 0 0 0 3px rgba(10, 34, 74, 0.2);
 }
 
 /* --- Main Content & Cards --- */
@@ -306,8 +306,8 @@ select:focus, input[type="text"]:focus {
 
 /* --- Footer --- */
 .footer {
-    background-color: #fff;
-    color: var(--text-light-color);
+    background-color: var(--text-color);
+    color: rgba(255, 255, 255, 0.8);
     padding: 2rem 0;
     margin-top: 2.5rem;
     text-align: center;
@@ -321,6 +321,7 @@ select:focus, input[type="text"]:focus {
 .footer-logo {
     height: 40px;
     width: auto;
+    filter: brightness(0) invert(1);
     opacity: 0.8;
 }
 
