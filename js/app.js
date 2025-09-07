@@ -20,7 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
             exportDataBtn: document.getElementById('export-data-btn'),
             kpiReach: document.getElementById('kpi-reach'),
             kpiEngagements: document.getElementById('kpi-engagements'),
-            kpiFollowers: document.getElementById('kpi-followers'),
             kpiVideoViews: document.getElementById('kpi-video-views'),
             performanceChartCanvas: document.getElementById('performance-chart'),
             topPostsContainer: document.getElementById('top-posts-container'),
@@ -169,7 +168,6 @@ document.addEventListener('DOMContentLoaded', () => {
         clearDashboard() {
             this.elements.kpiReach.textContent = '—';
             this.elements.kpiEngagements.textContent = '—';
-            this.elements.kpiFollowers.textContent = '—';
             this.elements.kpiVideoViews.textContent = '—';
             this.elements.topPostsContainer.innerHTML = '';
             if (this.state.charts.performance) this.state.charts.performance.destroy();
@@ -179,7 +177,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderKPIs(kpis) {
             this.elements.kpiReach.textContent = helpers.formatNumber(kpis.reach);
             this.elements.kpiEngagements.textContent = helpers.formatNumber(kpis.engagements);
-            this.elements.kpiFollowers.textContent = helpers.formatNumber(kpis.followers);
             this.elements.kpiVideoViews.textContent = helpers.formatNumber(kpis.videoViews);
         },
 

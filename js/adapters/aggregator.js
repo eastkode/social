@@ -2,57 +2,48 @@
 
 /**
  * API Adapter specifically for the Ayrshare Social Media API.
- * This simplifies data fetching by using a single API key and specific endpoints.
+ * Updated to be resilient and work within Free Plan limitations.
  */
 const aggregatorAdapter = {
     apiBaseUrl: 'https://app.ayrshare.com/api',
 
     /**
-     * Fetches all insights data from the Ayrshare API.
-     * It makes two calls: one to get post history and one for social analytics.
+     * Fetches post history from the Ayrshare API.
      * @param {string} apiKey The user's API key for Ayrshare.
      * @returns {Promise<object|null>} A promise that resolves with the formatted insights data.
      */
     async fetchInsights(apiKey) {
         if (!apiKey) {
             helpers.showToast('API Key is missing.', 'error');
-            helpers.log('Attempted to fetch data without an API Key.', 'ERROR');
             return null;
         }
 
-        helpers.log('Fetching insights from Ayrshare...');
+        helpers.log('Fetching post history from Ayrshare...');
 
         try {
-            // Perform API calls in parallel to save time
-            const [historyData, socialAnalyticsData] = await Promise.all([
-                this.fetchEndpoint(apiKey, '/history'),
-                this.fetchEndpoint(apiKey, '/analytics/social')
-            ]);
+            // Only call the /history endpoint
+            const historyData = await this.fetchHistory(apiKey);
 
-            if (!historyData || !socialAnalyticsData) {
-                throw new Error('One or more API calls failed to return data.');
-            }
-
-            const formattedData = this.formatData(historyData, socialAnalyticsData);
-            helpers.log('Successfully fetched and combined data from Ayrshare.');
+            // The formatData function will handle null/empty data
+            const formattedData = this.formatData(historyData);
+            helpers.log('Successfully processed data from Ayrshare.');
             return formattedData;
 
         } catch (error) {
-            helpers.showToast('Failed to fetch data from Ayrshare.', 'error');
-            helpers.log(`Ayrshare API Error: ${error.message}`, 'ERROR');
-            console.error(error);
+            // This catch is for network errors, not API errors handled in fetchHistory
+            helpers.showToast('A network error occurred.', 'error');
+            helpers.log(`Network Error: ${error.message}`, 'ERROR');
             return null;
         }
     },
 
     /**
-     * A generic helper to fetch data from a specific Ayrshare endpoint.
+     * Fetches the /history endpoint and handles API errors gracefully.
      * @param {string} apiKey The user's API key.
-     * @param {string} path The endpoint path (e.g., '/history').
-     * @returns {Promise<object>} The JSON response from the API.
+     * @returns {Promise<object|null>} The JSON response from the API or null if it fails.
      */
-    async fetchEndpoint(apiKey, path) {
-        const response = await fetch(`${this.apiBaseUrl}${path}`, {
+    async fetchHistory(apiKey) {
+        const response = await fetch(`${this.apiBaseUrl}/history`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -61,51 +52,34 @@ const aggregatorAdapter = {
         });
 
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || `API Error for ${path}: ${response.statusText}`);
+            // Handle 400 Bad Request (likely no history) and other errors gracefully
+            helpers.log(`API returned status ${response.status}. This can happen if there are no posts yet.`, 'WARN');
+            return null; // Return null instead of throwing an error
         }
         return response.json();
     },
 
     /**
-     * Formats the raw API data from Ayrshare's endpoints into our standardized dashboard structure.
-     * @param {object} historyData The response from the /history endpoint.
-     * @param {object} socialAnalyticsData The response from the /analytics/social endpoint.
+     * Formats the raw API data from Ayrshare's /history endpoint.
+     * @param {object | null} historyData The response from the /history endpoint.
      * @returns {object} A standardized data object for the dashboard.
      */
-    formatData(historyData, socialAnalyticsData) {
-        // The structure of the response is based on the Ayrshare docs provided by the user.
-        const posts = Array.isArray(historyData) ? historyData : (historyData.history || []);
-        const analytics = socialAnalyticsData || {};
+    formatData(historyData) {
+        const posts = historyData ? (Array.isArray(historyData) ? historyData : (historyData.history || [])) : [];
 
         const formatted = {
-            kpis: { reach: 0, engagements: 0, followers: 0, videoViews: 0 },
-            // Growth data is not directly available, so we leave it empty.
-            // A more advanced implementation could derive it from post history if needed.
-            growth: [],
+            kpis: { reach: 0, engagements: 0, followers: 'N/A', videoViews: 0 },
             topPosts: []
         };
 
-        // 1. Process Profile-level Analytics for KPIs
-        let totalFollowers = 0;
-        if (analytics.social) {
-            Object.values(analytics.social).forEach(profile => {
-                totalFollowers += profile.followers || 0;
-            });
+        if (posts.length === 0) {
+            helpers.log("No post history found.", "INFO");
         }
-        formatted.kpis.followers = totalFollowers;
 
-        // 2. Process Post History for Posts and remaining KPIs
         posts.forEach(post => {
-            // Ayrshare's /history endpoint may not contain detailed stats like reach or engagement.
-            // These often come from /analytics/post, but that would exceed the 20 req/month limit.
-            // We will derive what we can from the /history object.
             const postEngagements = (post.stats?.likes || 0) + (post.stats?.comments || 0) + (post.stats?.shares || 0);
-
-            // Summing up stats for KPIs. Note: This is a rough estimation.
             formatted.kpis.engagements += postEngagements;
 
-            // Creating the standardized post object for the 'Top Posts' section
             formatted.topPosts.push({
                 platform: post.platform.toLowerCase(),
                 id: post.id,
@@ -115,17 +89,16 @@ const aggregatorAdapter = {
                 stats: {
                     likes: post.stats?.likes || 0,
                     comments: post.stats?.comments || 0,
-                    saves: 'N/A', // Not provided in history endpoint
-                    reach: 'N/A', // Not provided in history endpoint
+                    saves: 'N/A',
+                    reach: 'N/A',
                     engagement: postEngagements
                 },
                 timestamp: post.timestamp || post.created_at
             });
         });
 
-        helpers.log("KPIs for Reach and Video Views are not available in the /history or /analytics/social endpoints.", "WARN");
+        helpers.log("Followers, Reach, and Video Views KPIs are not available on this API plan.", "WARN");
 
-        // Sort posts by engagement
         formatted.topPosts.sort((a, b) => b.stats.engagement - a.stats.engagement);
 
         return formatted;
