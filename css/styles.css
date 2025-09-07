@@ -103,6 +103,17 @@ body {
     color: var(--text-color);
 }
 
+.api-key-section {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.api-key-section input {
+    width: 300px; /* Adjust width as needed */
+    border: 1px solid var(--border-color);
+}
+
 .auth-buttons #user-profile {
     display: flex;
     align-items: center;

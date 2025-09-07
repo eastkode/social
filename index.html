@@ -38,14 +38,9 @@
                 <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEg_zb5s1d6Cx1yTSjSHdwqTocAhUFtYBAuRcjJd7aFxeeVAxnVT_Xa7g3Qfn8WV54YTaI2z5ivVzHzDoexsP4Pw3b0sTOeyhuiuVepJlO1stNj-g_vi6mIGIl7JI9rBr5hyphenhyphenu3Nzmzr6QtJ6ts_MjfQJ8alZTvEiZ7JRzRTVEKUt36KcSc_Q98rWp37CjBdC/s320/Amity%20Jharkhand%20Logo-01.png" alt="Amity University Logo" class="header-logo">
                 <h1>Dashboard</h1>
             </div>
-            <nav class="auth-buttons">
-                <button id="meta-login-btn" class="btn btn-meta"><i class="fab fa-facebook"></i> Login with Meta</button>
-                <button id="linkedin-login-btn" class="btn btn-linkedin"><i class="fab fa-linkedin"></i> Login with LinkedIn</button>
-                <div id="user-profile" style="display: none;">
-                    <img id="user-avatar" src="" alt="User">
-                    <span id="user-name"></span>
-                    <button id="logout-btn" class="btn btn-logout"><i class="fas fa-sign-out-alt"></i></button>
-                </div>
+            <nav class="api-key-section">
+                <input type="password" id="api-key-input" placeholder="Enter Your Aggregator API Key">
+                <button id="fetch-data-btn" class="btn"><i class="fas fa-sync"></i> Fetch Data</button>
             </nav>
         </div>
     </header>
@@ -53,8 +48,8 @@
     <!-- Main Content -->
     <main class="main-content">
         <div class="container">
-            <!-- Dashboard Area (hidden until login) -->
-            <div id="dashboard-area" style="display: none;">
+            <!-- Dashboard Area -->
+            <div id="dashboard-area">
                 <!-- Filters -->
                 <section class="card filters-card">
                     <h2 class="card-title"><i class="fas fa-filter"></i> Filters</h2>
@@ -130,13 +125,13 @@
                     <h2 class="card-title"><i class="fas fa-file-alt"></i> Logs & Errors</h2>
                     <pre id="logs-output"></pre>
                 </section>
-            </div>
 
-            <!-- Login Prompt -->
-            <div id="login-prompt" class="card login-prompt-card">
-                <h2>Welcome to your Social Media Dashboard</h2>
-                <p>Please log in with a social platform to view your analytics.</p>
-                <i class="fas fa-arrow-up"></i>
+                <!-- Initial Prompt -->
+                <div id="initial-prompt" class="card login-prompt-card">
+                    <h2>Welcome to your Social Media Dashboard</h2>
+                    <p>Enter your API key above and click "Fetch Data" to begin.</p>
+                    <i class="fas fa-key"></i>
+                </div>
             </div>
         </div>
     </main>
@@ -149,11 +144,9 @@
 
     <!-- Scripts -->
     <!-- Libraries -->
-    <script src="js/utils/pkce.js"></script>
     <script src="js/utils/helpers.js"></script>
     <!-- API Adapters -->
-    <script src="js/adapters/meta.js"></script>
-    <script src="js/adapters/linkedin.js"></script>
+    <script src="js/adapters/aggregator.js"></script>
     <!-- Main App Logic -->
     <script src="js/app.js"></script>
 
