@@ -46,20 +46,39 @@ document.addEventListener('DOMContentLoaded', () => {
         async loadAndFetchAllData() {
             helpers.toggleSpinner(true);
             this.clearDashboard();
-            this.elements.refreshStatus.innerHTML = `<i class="fas fa-sync-alt"></i> <span>Fetching data from Google Sheet...</span>`;
+            this.elements.refreshStatus.innerHTML = `<i class="fas fa-sync-alt"></i> <span>Fetching data...</span>`;
 
             try {
-                const history = await googleSheetAdapter.fetchData();
+                const [googleSheetResult, linkedinResult] = await Promise.allSettled([
+                    googleSheetAdapter.fetchData(),
+                    linkedinAdapter.fetchData()
+                ]);
 
-                if (history.length === 0) {
-                    helpers.log('No post history found in Google Sheet.');
+                let allPosts = [];
+                if (googleSheetResult.status === 'fulfilled') {
+                    // Filter out LinkedIn data from the Google Sheet, as we'll get it from the API
+                    const sheetPosts = googleSheetResult.value.filter(p => p['Traffic source']?.toLowerCase().trim() !== 'linkedin');
+                    allPosts = allPosts.concat(sheetPosts);
+                } else {
+                    helpers.log('Failed to fetch data from Google Sheet.', 'WARN');
+                }
+
+                if (linkedinResult.status === 'fulfilled') {
+                    allPosts = allPosts.concat(linkedinResult.value);
+                } else {
+                    helpers.log('Failed to fetch data from LinkedIn API.', 'WARN');
+                    helpers.showToast('Could not load data from LinkedIn. Please check your API credentials and permissions.', 'error');
+                }
+
+                if (allPosts.length === 0) {
+                    helpers.log('No post history found from any source.');
                     this.elements.initialPrompt.style.display = 'block';
-                    this.elements.refreshStatus.innerHTML = `<i class="fas fa-info-circle"></i> <span>No posts found in the data source.</span>`;
+                    this.elements.refreshStatus.innerHTML = `<i class="fas fa-info-circle"></i> <span>No posts found.</span>`;
                     helpers.toggleSpinner(false);
                     return;
                 }
 
-                this.state.allPosts = history;
+                this.state.allPosts = allPosts;
 
                 helpers.toggleSpinner(false);
                 this.elements.initialPrompt.style.display = 'none';
@@ -121,20 +140,27 @@ document.addEventListener('DOMContentLoaded', () => {
         },
 
         processLinkedInPost(post) {
-            // Using page-level metrics as a proxy for post-level KPIs, as post-level data is not available in the CSV for LinkedIn.
-            const reach = parseInt(post['All Page Views'], 10) || 0;
+            if (post.stats) {
+                // Data from LinkedIn API
+                const { reach, engagements, videoViews, likes, comments, shares } = post.stats;
+                return { reach, engagements, videoViews, likes, comments, shares };
+            } else {
+                // Data from CSV (fallback)
+                // Using page-level metrics as a proxy for post-level KPIs, as post-level data is not available in the CSV for LinkedIn.
+                const reach = parseInt(post['All Page Views'], 10) || 0;
 
-            const aboutViews = parseInt(post['About Page Views'], 10) || 0;
-            const careersViews = parseInt(post['Careers Page Views'], 10) || 0;
-            const insightsViews = parseInt(post['Insights Page Views'], 10) || 0;
-            const jobsViews = parseInt(post['Jobs Page Views'], 10) || 0;
-            const lifeAtViews = parseInt(post['Life At Page Views'], 10) || 0;
-            const overviewViews = parseInt(post['Overview Page Views'], 10) || 0;
-            const peopleViews = parseInt(post['People Page Views'], 10) || 0;
-            const engagements = aboutViews + careersViews + insightsViews + jobsViews + lifeAtViews + overviewViews + peopleViews;
+                const aboutViews = parseInt(post['About Page Views'], 10) || 0;
+                const careersViews = parseInt(post['Careers Page Views'], 10) || 0;
+                const insightsViews = parseInt(post['Insights Page Views'], 10) || 0;
+                const jobsViews = parseInt(post['Jobs Page Views'], 10) || 0;
+                const lifeAtViews = parseInt(post['Life At Page Views'], 10) || 0;
+                const overviewViews = parseInt(post['Overview Page Views'], 10) || 0;
+                const peopleViews = parseInt(post['People Page Views'], 10) || 0;
+                const engagements = aboutViews + careersViews + insightsViews + jobsViews + lifeAtViews + overviewViews + peopleViews;
 
-            const videoViews = 0; // No video views data for LinkedIn in the CSV
-            return { reach, engagements, videoViews, likes: 0, comments: 0, shares: 0 };
+                const videoViews = 0; // No video views data for LinkedIn in the CSV
+                return { reach, engagements, videoViews, likes: 0, comments: 0, shares: 0 };
+            }
         },
 
         aggregateDataFromPosts(posts) {
@@ -149,7 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             posts.forEach(post => {
-                const platform = post['Traffic source']?.toLowerCase().trim();
+                const platform = (post['Traffic source'] || post.platform)?.toLowerCase().trim();
                 if (!platform) return;
 
                 let postMetrics;
