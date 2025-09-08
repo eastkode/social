@@ -80,9 +80,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const selectedYear = parseInt(this.elements.yearSelect.value, 10);
             const selectedMonth = this.elements.monthSelect.value;
 
+            const linkedinWarning = document.getElementById('linkedin-data-warning');
+            if (selectedPlatform === 'linkedin' || selectedPlatform === 'all') {
+                linkedinWarning.style.display = 'block';
+            } else {
+                linkedinWarning.style.display = 'none';
+            }
+
             const filteredPosts = this.state.allPosts.filter(post => {
                 const postDate = new Date(post.Date);
-                const platformMatch = selectedPlatform === 'all' || post['Traffic source']?.toLowerCase() === selectedPlatform;
+                const platformMatch = selectedPlatform === 'all' || post['Traffic source']?.toLowerCase().trim() === selectedPlatform;
                 const yearMatch = postDate.getFullYear() === selectedYear;
                 const monthMatch = selectedMonth === 'all' || (postDate.getMonth() + 1) == selectedMonth;
                 return platformMatch && yearMatch && monthMatch;
@@ -91,6 +98,43 @@ document.addEventListener('DOMContentLoaded', () => {
             const aggregatedData = this.aggregateDataFromPosts(filteredPosts);
             this.state.dashboardData = aggregatedData;
             this.renderDashboard(aggregatedData);
+        },
+
+        processFacebookPost(post) {
+            const reach = parseInt(post['Post Total Reach - Lifetime, Post'], 10) || 0;
+            const likes = parseInt(post['Total Like Reactions of a post. (Lifetime)'], 10) || 0;
+            const comments = parseInt(post['Post Comments'], 10) || 0;
+            const clicks = parseInt(post['Total Post Clicks (Lifetime)'], 10) || 0;
+            const engagements = likes + comments + clicks;
+            const videoViews = parseInt(post['Total Video Views (Lifetime)'], 10) || 0;
+            return { reach, engagements, videoViews, likes, comments, shares: 0 };
+        },
+
+        processInstagramPost(post) {
+            const reach = parseInt(post['Impressions'], 10) || 0;
+            const likes = parseInt(post['Likes'], 10) || 0;
+            const comments = parseInt(post['Comments'], 10) || 0;
+            const saves = parseInt(post['Saves'], 10) || 0;
+            const engagements = likes + comments + saves;
+            const videoViews = parseInt(post['Video Views'], 10) || 0;
+            return { reach, engagements, videoViews, likes, comments, shares: 0, saves };
+        },
+
+        processLinkedInPost(post) {
+            // Using page-level metrics as a proxy for post-level KPIs, as post-level data is not available in the CSV for LinkedIn.
+            const reach = parseInt(post['All Page Views'], 10) || 0;
+
+            const aboutViews = parseInt(post['About Page Views'], 10) || 0;
+            const careersViews = parseInt(post['Careers Page Views'], 10) || 0;
+            const insightsViews = parseInt(post['Insights Page Views'], 10) || 0;
+            const jobsViews = parseInt(post['Jobs Page Views'], 10) || 0;
+            const lifeAtViews = parseInt(post['Life At Page Views'], 10) || 0;
+            const overviewViews = parseInt(post['Overview Page Views'], 10) || 0;
+            const peopleViews = parseInt(post['People Page Views'], 10) || 0;
+            const engagements = aboutViews + careersViews + insightsViews + jobsViews + lifeAtViews + overviewViews + peopleViews;
+
+            const videoViews = 0; // No video views data for LinkedIn in the CSV
+            return { reach, engagements, videoViews, likes: 0, comments: 0, shares: 0 };
         },
 
         aggregateDataFromPosts(posts) {
@@ -105,12 +149,32 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             posts.forEach(post => {
-                const platform = post['Traffic source']?.toLowerCase();
+                const platform = post['Traffic source']?.toLowerCase().trim();
                 if (!platform) return;
 
-                const reach = parseInt(post['Post Total Reach - Lifetime, Post'], 10) || 0;
-                const engagements = parseInt(post['Total Post Clicks (Lifetime)'], 10) || 0;
-                const videoViews = parseInt(post['Total Video Views (Lifetime)'], 10) || 0;
+                let postMetrics;
+                switch (platform) {
+                    case 'facebook':
+                        postMetrics = this.processFacebookPost(post);
+                        break;
+                    case 'instagram':
+                        postMetrics = this.processInstagramPost(post);
+                        break;
+                    case 'linkedin':
+                        postMetrics = this.processLinkedInPost(post);
+                        break;
+                    default:
+                        postMetrics = { reach: 0, engagements: 0, videoViews: 0, likes: 0, comments: 0, shares: 0, saves: 0 };
+                }
+
+                const { reach, engagements, videoViews, likes, comments, shares, saves } = postMetrics;
+
+                // Common fields
+                const postDate = post.Date;
+                const postId = post['Post ID'];
+                const postThumbnail = post['Full Picture URL'] || post['Thumbnail URL'] || 'https://via.placeholder.com/300x200';
+                const postCaption = post['Post Message'] || 'No caption available.';
+                const postUrl = post['Post Permalink URL'] || post['Permalink'];
 
                 if (aggregated.kpis[platform]) {
                     aggregated.kpis[platform].reach += reach;
@@ -124,19 +188,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 aggregated.topPosts.push({
                     platform: platform,
-                    id: post['Post ID'],
-                    thumbnail: post['Full Picture URL'] || 'https://via.placeholder.com/300x200',
-                    caption: post['Post Message'] || 'No caption available.',
-                    url: post['Post Permalink URL'],
+                    id: postId,
+                    thumbnail: postThumbnail,
+                    caption: postCaption,
+                    url: postUrl,
                     stats: {
-                        likes: parseInt(post['Post Likes'], 10) || 0,
-                        comments: parseInt(post['Post Comments'], 10) || 0,
-                        saves: 'N/A',
+                        likes: likes,
+                        comments: comments,
+                        saves: (platform === 'instagram' ? saves : 'N/A'),
                         reach: reach,
                         videoViews: videoViews,
                         engagement: engagements
                     },
-                    timestamp: new Date(post.Date).getTime()
+                    timestamp: new Date(postDate).getTime()
                 });
             });
             return aggregated;
@@ -161,47 +225,69 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const platforms = ['facebook', 'instagram', 'linkedin'];
             const icons = {
-                facebook: 'fa-facebook',
-                instagram: 'fa-instagram',
-                linkedin: 'fa-linkedin'
+                facebook: 'fab fa-facebook',
+                instagram: 'fab fa-instagram',
+                linkedin: 'fab fa-linkedin'
             }
 
-            let kpiHTML = '<h2>Total KPIs</h2><div class="kpi-grid">';
-            kpiHTML += `
-                <div class="card kpi-card">
-                    <h3><i class="fas fa-bullseye"></i> Total Reach</h3>
-                    <p>${helpers.formatNumber(kpis.total.reach)}</p>
-                </div>
-                <div class="card kpi-card">
-                    <h3><i class="fas fa-heart"></i> Total Engagements</h3>
-                    <p>${helpers.formatNumber(kpis.total.engagements)}</p>
-                </div>
-                <div class="card kpi-card">
-                    <h3><i class="fas fa-video"></i> Total Video Views</h3>
-                    <p>${helpers.formatNumber(kpis.total.videoViews)}</p>
-                </div>
-            </div>`;
+            let totalKpiHTML = '';
+            if (kpis.total.reach > 0) {
+                totalKpiHTML += `
+                    <div class="card kpi-card">
+                        <h3><i class="fas fa-bullseye"></i> Total Reach</h3>
+                        <p>${helpers.formatNumber(kpis.total.reach)}</p>
+                    </div>`;
+            }
+            if (kpis.total.engagements > 0) {
+                totalKpiHTML += `
+                    <div class="card kpi-card">
+                        <h3><i class="fas fa-heart"></i> Total Engagements</h3>
+                        <p>${helpers.formatNumber(kpis.total.engagements)}</p>
+                    </div>`;
+            }
+            if (kpis.total.videoViews > 0) {
+                totalKpiHTML += `
+                    <div class="card kpi-card">
+                        <h3><i class="fas fa-video"></i> Total Video Views</h3>
+                        <p>${helpers.formatNumber(kpis.total.videoViews)}</p>
+                    </div>`;
+            }
+
+            let kpiHTML = '';
+            if (totalKpiHTML) {
+                kpiHTML += `<h2>Total KPIs</h2><div class="kpi-grid">${totalKpiHTML}</div>`;
+            }
 
 
             platforms.forEach(platform => {
                 const platformKpis = kpis[platform];
-                if (platformKpis) {
-                    kpiHTML += `<h2><i class="fab ${icons[platform]}"></i> ${platform.charAt(0).toUpperCase() + platform.slice(1)} KPIs</h2><div class="kpi-grid">`;
-                    kpiHTML += `
-                        <div class="card kpi-card">
-                            <h3><i class="fas fa-bullseye"></i> Reach</h3>
-                            <p>${helpers.formatNumber(platformKpis.reach)}</p>
-                        </div>
-                        <div class="card kpi-card">
-                            <h3><i class="fas fa-heart"></i> Engagements</h3>
-                            <p>${helpers.formatNumber(platformKpis.engagements)}</p>
-                        </div>
-                        <div class="card kpi-card">
-                            <h3><i class="fas fa-video"></i> Video Views</h3>
-                            <p>${helpers.formatNumber(platformKpis.videoViews)}</p>
-                        </div>
-                    `;
-                    kpiHTML += '</div>';
+                if (platformKpis && (platformKpis.reach > 0 || platformKpis.engagements > 0 || platformKpis.videoViews > 0)) {
+                    let platformKpiHTML = '';
+                    if (platformKpis.reach > 0) {
+                        platformKpiHTML += `
+                            <div class="card kpi-card">
+                                <h3><i class="fas fa-bullseye"></i> Reach</h3>
+                                <p>${helpers.formatNumber(platformKpis.reach)}</p>
+                            </div>`;
+                    }
+                    if (platformKpis.engagements > 0) {
+                        platformKpiHTML += `
+                            <div class="card kpi-card">
+                                <h3><i class="fas fa-heart"></i> Engagements</h3>
+                                <p>${helpers.formatNumber(platformKpis.engagements)}</p>
+                            </div>`;
+                    }
+                    if (platformKpis.videoViews > 0) {
+                        platformKpiHTML += `
+                            <div class="card kpi-card">
+                                <h3><i class="fas fa-video"></i> Video Views</h3>
+                                <p>${helpers.formatNumber(platformKpis.videoViews)}</p>
+                            </div>`;
+                    }
+
+                    if (platformKpiHTML) {
+                        kpiHTML += `<h2><i class="${icons[platform]}"></i> ${helpers.capitalizeFirstLetter(platform)} KPIs</h2><div class="kpi-grid">${platformKpiHTML}</div>`;
+                    }
                 }
             });
 
