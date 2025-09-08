@@ -174,5 +174,14 @@ const helpers = {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         this.log(`Exported data as ${filename}.csv`);
+    },
+
+    /**
+     * Capitalizes the first letter of a string.
+     * @param {string} string The string to capitalize.
+     * @returns {string} The capitalized string.
+     */
+    capitalizeFirstLetter(string) {
+        return string.charAt(0).toUpperCase() + string.slice(1);
     }
 };

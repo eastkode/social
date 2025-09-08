@@ -376,3 +376,22 @@ select:focus, input[type="text"]:focus {
         font-size: 2.2rem;
     }
 }
+
+/* --- Warning Card --- */
+.warning-card {
+    background-color: #fff3cd;
+    color: #856404;
+    border-color: #ffeeba;
+    padding: 20px;
+}
+
+.warning-card p {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.warning-card i {
+    font-size: 1.2rem;
+}
